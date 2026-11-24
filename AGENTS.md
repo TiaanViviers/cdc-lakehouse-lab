@@ -38,3 +38,14 @@ This repository is an **engineering research project**. A passing test is necess
 
 ## Documentation discipline
 Use [experiment template](docs/experiments/TEMPLATE.md) and [ADR template](docs/decisions/TEMPLATE.md). The roadmap is provisional. A negative experimental result is valid completion when reproduced and explained.
+
+## Full approved PoC and environment boundaries
+The full PoC now includes an **independent query-serving service** (phase 5) and a **synthetic asynchronous request / S3 batch / controlled write-back system** (phase 6). Neither is optional for the complete demonstration, though both come after analytical ingestion and transformation are proved. The exact tools and interfaces remain research hypotheses. Read [query-serving](docs/query-serving.md) and [async-processing](docs/async-processing.md) before related work.
+
+- Query serving must access **both** PostgreSQL DuckLake metadata and actual Gold Parquet data. Do not assume the catalog alone is a client SQL engine or silently install custom extensions on managed RDS.
+- Keep pending operational request state in a separate durable PostgreSQL role. Prepared batch objects belong in a **separate S3 bucket/namespace**, not as provisional DuckPipe-maintained Bronze.
+- Source PostgreSQL remains authoritative for committed operations. Use source-side idempotency receipts in the same transaction as business writes; a request-DB timestamp watermark is insufficient. Never implement reverse DuckPipe CDC as a write-back workaround.
+- A manager's approval of a proposed system means permission to investigate it, **not evidence of compatibility, security or production performance**.
+
+## Ticket identity (mandatory)
+Issue titles use the stable **`<phase>.<sequence> Verb outcome`** scheme, e.g. **`1.12 Implement Python generator`**. Ticket IDs are strings and distinct from GitHub `#NN`. Phases 0–8 are defined in [roadmap](docs/roadmap.md). Read [issue conventions](docs/issue-conventions.md); check `backlog/tickets.yaml` and existing issues to avoid ID collisions. Do not automatically publish tickets or merge PRs.

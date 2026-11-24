@@ -1,32 +1,43 @@
-# Vision and research boundaries
+# Vision, scope and project status
 
-## Problem
+## Mission
 
-Operational PostgreSQL supports transactional writes. Analytics, reporting and ML need robust derived datasets without repeatedly scanning operational tables. The research question is whether a WAL-based ingestion path feeding a shared lakehouse can act as a reusable analytical foundation with independent compute and downstream consumers.
+Build a reproducible, observable and fault-testable data platform lab in which a source PostgreSQL database is read **once through a CDC ingestion path** and its data is reused for analytics, reporting and optional downstream operational preparation. Demonstrate both the strengths and the limits of the proposed architecture.
 
-## Intended long-term hypothesis
+A project stakeholder has **approved the full logical reference architecture as the PoC direction**, including separate query serving and asynchronous request processing. This is **scope approval**, not experimental verification or permission to use proprietary data or actual environments.
 
-1. **Capture once:** a remote CDC consumer follows PostgreSQL WAL and maintains source-aligned Bronze data.
-2. **Shared lake:** DuckLake metadata lives in PostgreSQL; Parquet data lives in S3-compatible object storage.
-3. **Transform independently:** DuckDB executes SQL in worker processes, with Windmill Flows/Pipelines potentially managing dependencies, schedules and materialisation.
-4. **Serve independently:** clients read Gold via an appropriate query service or DuckDB clients; query-serving technology is a separate future decision.
-5. **Potential future operational work:** durable asynchronous requests and controlled idempotent write-back to an authoritative transactional store, *not* reverse DuckPipe replication.
+## Target architecture
 
-These are architectural hypotheses, not product commitments. A DuckLake current-state replica may not preserve every source change event. CDC consistency and historical guarantees must be established experimentally.
+### Path A — analytical plane
 
-## Non-goals for the initial PoC
+Synthetic PostgreSQL → remote `pg_duckpipe` (logical WAL) → DuckLake Bronze, catalogued in PostgreSQL with Parquet files in an S3-compatible bucket → Windmill-managed DuckDB transformations → Silver and domain-specific Gold → independent SQL query service for reporting and independent DuckDB clients for validation/ML.
 
-- Migration of any existing corporate SSIS/warehouse application.
-- Real customer data, real infrastructure, production credentials, actual business logic.
-- Dedicated SQL query service, Redshift, BI concurrency benchmarking or a production HA cluster.
-- Voucher generation, request database, SQS, operational write-back or bidirectional replication.
-- Claiming a production-ready architecture from local correctness tests.
-- Assuming that one logical lake implies a single operational source of truth.
+### Path B — operational work plane
 
-## Desired outcomes
+Synthetic client request → API + durable request PostgreSQL → Windmill operational workers → optional reads from a **declared, versioned** lake snapshot → candidate batch output in a **different S3 bucket** → controlled, scheduled or event-driven, idempotent production write-back → source PostgreSQL commit → ordinary one-way CDC captures the resulting operational records.
 
-A public, generic reproducible lab; small deterministic business-event simulator; independently observable CDC and snapshots; source-to-Gold correctness tests; real compatibility findings; fault-injection reports; a measured path for evaluating cloud deployment.
+**Authority rules:** production-like PostgreSQL decides final operational validity; the request store owns pending work/status, not redeemable business state; the lake is the canonical analytical copy, not an independent writer of source-of-truth rows. If business rules require activation while source PostgreSQL is unavailable, that is an explicitly out-of-scope redesign of operational authority.
 
-## Research vs implementation
+## Why this is transformational
 
-This project deliberately records failed trials and limitations. A well-understood incompatibility is more valuable than a hidden workaround. The goal is learning and evidence, not showcasing a predetermined product stack.
+- Single upstream CDC path rather than repeated downstream extraction.
+- Reusable Bronze/Silver/Gold datasets, including separate Gold Reporting, Gold ML and Gold Analytics.
+- Independent, scalable compute and query-serving roles.
+- Non-blocking request generation and durable delayed write-back.
+- Transparent consistency contracts, replay, snapshots, failure/recovery and observability.
+
+## Initial PoC scope (all phases)
+
+**Included:** source simulator, DuckPipe, DuckLake + catalog + S3-compatible storage, Windmill/worker transformations, *logical independent reporting query service*, synthetic asynchronous request DB/API, separate operational S3 artifacts, controlled source write-back, monitoring and fault injection. These may run as containers on one laptop rather than five real EC2 instances.
+
+**Excluded:** actual company data/infrastructure, branded domain models, existing ETL migrations, public network APIs, real voucher value/redemption, full enterprise identity management, hard production SLAs, multi-region disaster recovery, real AWS billing/provisioning, unbounded scale, and claims of operational independence during an outage.
+
+## Decisions vs research hypotheses
+
+Selected architectural **roles** are accepted for PoC exploration. Specific products, deployment topology, protocol support, shared-catalog multi-writer semantics, query concurrency, and recovery guarantees remain to be established through documented experiments. Retain failure evidence; use ADRs before changing a key design.
+
+## Research philosophy
+
+Each phase must deliver a working demonstration, deterministic validation, an inspection runbook and an experiment report. A well-characterized incompatibility is a useful result; silently replacing the requested stack is not.
+
+The editable [architecture drawing](Data_System.drawio) is a communication aid, not proof of a functioning deployment.

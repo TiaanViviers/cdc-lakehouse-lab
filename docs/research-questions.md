@@ -23,9 +23,22 @@ Each experiment must report setup, version, hypothesis, procedure, expected resu
 | R15 | What is the role of catalog, S3 and worker compute? | SQL profiling and resource metrics | Trace metadata and Parquet read paths |
 | R16 | Is human observation sufficient? | Reproduce an event across UIs, logs and queries | Documented walkthrough identifies each stage |
 
+| R17 | Can a separate PostgreSQL-compatible SQL endpoint query remote DuckLake Gold? | Query Gold from `psql` via a `pg_ducklake` candidate with external catalog + S3 | Exact results match independent DuckDB |
+| R18 | Which SQL dialect/driver features are supported by the reporting interface? | Real PostgreSQL driver queries, error handling, parameterized queries | Supported/unsupported client behaviours recorded |
+| R19 | Can query-serving isolation enforce least-privilege read-only access? | Separate SQL roles and scoped S3/catalog credentials | Gold readable, protected schemas/writes rejected |
+| R20 | How does serving behave with multiple clients? | Reproducible concurrent queries, p50/p95 + CPU/RAM observations | Correctness and measured capacity, no implied SLA |
+| R21 | What happens when reporting, catalog or S3 services fail? | Stop individual service, query/restart | Failure and recovery semantics documented |
+| R22 | Can client requests be accepted durably while the source is down? | Source stopped, submit synthetic job, inspect request DB | Request retained with unique ID, no false completion |
+| R23 | When should an async worker read Gold, and what if it is stale? | Self-contained vs versioned Gold input and commit-time source validation | Reproducible correctness/rejection rules |
+| R24 | Can prepared batches be retained independently in S3? | Write immutable CSV/Parquet object + checksum + request DB reference | Object/references validated, retries safe |
+| R25 | Can write-back produce idempotent source-side effects? | Duplicate delivery and crash-after-source-commit test | No duplicate effects; durable source receipts |
+| R26 | How do operational jobs recover from worker, request DB, or S3 failures? | Inject failures at acceptance, generation, artifact and commit | Status reconciliation and replay policy documented |
+| R27 | Does separate request processing isolate preparation from source workload? | Source unavailable/slow scenarios, bounded source writes | Prep continues where inputs allow; commits wait |
+| R28 | Does write-back flow back through one-way CDC without a feedback loop? | Commit test batch, inspect Bronze and source counts | Correct final state, no reverse replication / recursion |
+
 ## Research priorities
 
-First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after independent lake access. Later R13–R16. Findings may force a change of stack; write an ADR rather than hiding it.
+First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after independent lake access. Later R13–R16; reporting R17–R21 follows Gold readiness; operational R22–R28 follows worker/source foundations. Findings may force a change of stack; write an ADR rather than hiding it.
 
 ## Explicit hypotheses
 
@@ -34,5 +47,7 @@ First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after
 - **H3:** A Windmill DuckDB worker can use the **same** lake for downstream materialisation without conflicting with DuckPipe.
 - **H4:** A robust coordinator can define a source-data cutoff and publish internally consistent downstream assets.
 - **H5:** Multi-stage execution and CDC recovery remain inspectable by a newcomer without relying solely on raw container logs.
+- **H6:** A logically separate `pg_ducklake` reporting server can read the remote DuckLake catalog and S3 Gold through ordinary PostgreSQL clients with manageable latency/isolation.
+- **H7:** A durable request PostgreSQL and separate S3 artifact bucket can support delayed, idempotent source write-back without maintaining a bidirectionally replicated operational database.
 
 These are hypotheses, not results.

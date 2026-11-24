@@ -1,8 +1,16 @@
 name: Implementation task
 description: A scoped, testable infrastructure or code change
-title: "[Implementation] "
+title: ""
 labels: []
 body:
+  - type: input
+    id: ticket_id
+    attributes:
+      label: Stable phase ticket ID
+      description: Use phase.sequence, e.g. 1.12. Set the GitHub issue TITLE to '1.12 Implement Python generator'. This is NOT GitHub #number.
+      placeholder: "1.12"
+    validations:
+      required: true
   - type: textarea
     id: objective
     attributes:
