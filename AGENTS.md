@@ -49,3 +49,9 @@ The full PoC now includes an **independent query-serving service** (phase 5) and
 
 ## Ticket identity (mandatory)
 Issue titles use the stable **`<phase>.<sequence> Verb outcome`** scheme, e.g. **`1.12 Implement Python generator`**. Ticket IDs are strings and distinct from GitHub `#NN`. Phases 0–8 are defined in [roadmap](docs/roadmap.md). Read [issue conventions](docs/issue-conventions.md); check `backlog/tickets.yaml` and existing issues to avoid ID collisions. Do not automatically publish tickets or merge PRs.
+
+
+## GitHub issue workflow (single maintainer)
+Follow [project management](docs/project-management.md): one board with **Backlog → Ready → In Progress → Done**, one **current-phase milestone**, and a minimal label set (`feature`, `research`, `bug`, `docs`, `priority:high`, `priority:low`, `blocked`). Do not create area/phase/status labels; milestones and board status provide those dimensions.
+
+**Plan tickets one phase at a time.** Do not publish future-phase tickets before reviewing current research findings. Include a **phase handover ticket in every phase**. This ticket must be the **last to be completed**, and its completion requires reviewing phase results, updating research/docs/ADRs, drafting and approving the next phase's tickets, creating the next milestone, publishing the tickets with stable IDs, and populating the board. Its numeric ID might not be highest if additional issues were discovered. Phase 8 ends with final project closeout unless another phase has been explicitly approved.

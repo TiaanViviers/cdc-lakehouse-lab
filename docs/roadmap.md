@@ -42,6 +42,10 @@ Operational Phase 6 requires the source (phase 1), durable worker orchestration 
 
 Every actual ticket title begins with a stable **`<phase>.<number>`** identifier, e.g. **`1.12 Implement Python generator`**. The sequence is per phase; numbers are never recycled or renumbered after publication. GitHub `#123` is a separate global issue number. See [ticket conventions](issue-conventions.md) and [backlog index](../backlog/README.md). Do not publish issues automatically from this roadmap.
 
+## Phase transition is part of every milestone
+
+Each milestone ends with a **mandatory, last-to-complete transition ticket**: reconcile research findings and ADRs, review/update scope, create the **next milestone only**, draft/approve and publish its tickets, reserve IDs and add them to the shared board. Later phases are not pre-ticketed. The transition issue is last in *completion order* even if new phase-specific issues receive higher ticket IDs during research. Phase 8 ends with a final closeout ticket instead of automatically creating Phase 9. See [GitHub project workflow](project-management.md).
+
 ## Phase completion discipline
 
 No milestone is complete merely because Docker containers are healthy or an agent reports success. Require reproducible commands, data correctness checks, evidence from UIs/logs, version pins and relevant research-question updates.

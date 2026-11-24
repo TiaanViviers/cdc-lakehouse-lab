@@ -40,6 +40,7 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 - [Development guide](docs/development-guide.md)
 - [Roadmap and dependencies](docs/roadmap.md)
 - [Ticket naming / issue numbering](docs/issue-conventions.md)
+- [GitHub project workflow](docs/project-management.md)
 - [Agent rules](AGENTS.md)
 
 ## GitHub issues
