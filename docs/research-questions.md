@@ -44,6 +44,8 @@ Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in
 
 ## Research priorities
 
+Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six remain **OPEN**. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
+
 First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after independent lake access. Later R13–R16; reporting R17–R21 follows Gold readiness; operational R22–R28 follows worker/source foundations. Findings may force a change of stack; write an ADR rather than hiding it.
 
 ## Explicit hypotheses
