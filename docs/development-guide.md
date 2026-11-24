@@ -1,6 +1,34 @@
 # Local development and engineering guidelines
 
-## Host assumptions
+## Repository validation
+
+From the repository root, use Git, GNU Make, a POSIX shell and its standard tools (including `awk`). The checks run offline and require no Python packages, Docker or environment file.
+
+```sh
+make help
+make check
+```
+
+Stage new files before validation so Git includes them. `make check` runs two targets:
+
+- `make check-whitespace` checks added lines for Git whitespace errors. It compares tracked working-tree content against `HEAD` by default. Run `make check BASE=origin/main` after fetching `main` to include your committed branch changes.
+- `make check-local-files` checks representative ignored paths, rejects tracked files that match the repository's ignore rules, and requires every assignment in `.env.example` to use a placeholder of the form `<replace-with-name>`. Review the staged diff for credentials and generated data under other names.
+
+The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main`. It checks the proposed merge against the pull request's base commit. Unit and integration checks are planned as described below.
+
+### Ticket 0.5 validation record
+
+Verified on 2026-11-24 against the [GNU Make manual](https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html), [Git ignore rules](https://git-scm.com/docs/gitignore), [Git diff options](https://git-scm.com/docs/git-diff), [GitHub Actions syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax), and [Ubuntu 24.04 runner software](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md). The workflow uses [checkout v6.0.3](https://github.com/actions/checkout/releases/tag/v6.0.3), pinned to its release commit.
+
+Observed locally with Git 2.43.0 and GNU Make 4.3:
+
+- `make` and `make help` listed the four developer commands. `make check` and `make help check BASE=origin/main` passed both repository checks.
+- `git check-ignore -v --no-index .env config/.env.test volumes/source/PG_VERSION artifacts/run.parquet` identified the repository rules for all four paths. `git ls-files --error-unmatch .env.example` confirmed that the template was tracked.
+- In a disposable Git repository, the checks rejected trailing whitespace, a force-staged Parquet file and a sample environment assignment with a non-placeholder value.
+
+See the ticket 0.5 pull request for the hosted run and its logs.
+
+## Planned runtime host
 
 Ubuntu/Linux Docker Engine + Docker Compose v2, Python 3, Git. Start with a laptop-sized configuration (~16 GB RAM). Use one Windmill worker initially and small fixtures; don't enable all services before prerequisites are validated.
 
@@ -40,7 +68,8 @@ Start with pgAdmin (source + CDC/catalog + request DB), storage object console (
 - Use fixed random seed and fixture scenario IDs; keep input and expected outputs versioned as small synthetic files.
 - Avoid unbounded concurrency or generating millions of rows on a laptop.
 - Test idempotent reset and cleanup using explicitly named disposable volumes; warn before data destruction.
-- Use `.env.example`; never commit a live `.env`.
+- Keep `.env.example` as a placeholder-only reference. Runtime tickets will document which variables their services consume and when to create a local `.env`.
+- Store disposable secrets under `secrets/` or in ignored local environment files. Keep services in named Docker volumes as specified in the [local runtime design](local-runtime-design.md). Put local volume exports under `volumes/` and generated experiment outputs under `artifacts/`. Commit only small intentional synthetic inputs and expected results, plus redacted evidence in experiment records.
 - Prefer versioned SQL initialization scripts and documented migration paths rather than hand-edited databases.
 
 ## Version compatibility checkpoint
@@ -48,6 +77,8 @@ Start with pgAdmin (source + CDC/catalog + request DB), storage object console (
 Before coding, independently verify: PG source WAL settings; DuckPipe PG host supported version and remote source support; pg_ducklake required extension dependencies; S3-compatible service compatibility; DuckDB DuckLake extension catalog URI syntax; Windmill release/edition and Pipeline feature availability. Record versions in an ADR or experiment, and do not copy untested snippets from old chat discussions.
 
 ## Test hierarchy
+
+When the first testable code lands, put service-free tests under `tests/unit/` and add a `make test-unit` target to CI. Put service-dependent tests under `tests/integration/` and add an explicit `make test-integration` target when the relevant disposable local profile and its prerequisites are available. Document exact commands and fixture expectations in the tickets that add those suites.
 
 - Unit: generator input/output, deterministic event sequence.
 - Integration: source to CDC, catalog to object store, independent DuckDB read, Windmill to lake, remote SQL endpoint to catalog/S3, request API to request DB to S3 to write-back.
@@ -57,7 +88,7 @@ Before coding, independently verify: PG source WAL settings; DuckPipe PG host su
 
 ## Development workflow
 
-Use focused issues, branch/PR review, simple lint/test CI once implementation exists. Every implementation PR should link the research question and show actual commands and results.
+Start each approved ticket on a dedicated branch from current `main`. Run the repository checks and inspect the staged diff before pushing. Open a focused PR against `main` with the stable ticket ID, GitHub issue link, exact commands, observed results and relevant research questions. Leave merging to the maintainer after review and validation. Follow the [project management conventions](project-management.md) for board status and phase milestones.
 
 ## Logical deployment vs physical AWS
 

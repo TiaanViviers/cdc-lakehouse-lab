@@ -221,3 +221,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Lab credentials and local configuration
+.env.*
+!/.env.example
+/secrets/
+*.pem
+*.key
+
+# Local volume exports and generated experiment outputs
+/volumes/
+/artifacts/
+*.duckdb
+*.duckdb.wal
+*.parquet
