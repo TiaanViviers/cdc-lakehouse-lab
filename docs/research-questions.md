@@ -4,6 +4,10 @@ Status vocabulary: **OPEN**, **DOC-VERIFIED**, **EXPERIMENT-VERIFIED**, **BLOCKE
 
 Each experiment must report setup, version, hypothesis, procedure, expected result, *actual* output, artifacts, conclusion and remaining uncertainty. Use [the experiment template](experiments/TEMPLATE.md).
 
+## Phase 0 compatibility review
+
+Ticket 0.1 documented remote-source registration (R01), the catalog and object-store interfaces (R06–R07, R09), worker and Pipeline features (R10–R11), and remote catalog FDW support (R17). R22 has pinned candidate request-store prerequisites. All eight lab questions remain **OPEN** at their stated acceptance conditions. The first runtime check is stock PG16 to the digest-pinned DuckPipe PG18 image. A catalog-format mismatch is expected between that image's source dependency and the newest worker and serving candidates. Verify the actual catalog before attaching downstream clients. See the [compatibility matrix](compatibility-matrix.md) and [source and registry evidence](experiments/EXP-001-component-compatibility.md).
+
 | ID | Question | Experiment / evidence | Acceptance condition |
 | --- | --- | --- | --- |
 | R01 | Does remote DuckPipe successfully capture a PG16 source? | Reproducible container setup and documented replication handshake | Source changes replicated without installing DuckPipe on source |
