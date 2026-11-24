@@ -1,6 +1,14 @@
 # GitHub project workflow
 
-A deliberately lightweight workflow for **one maintainer plus coding agents**. This is a process specification. It does not imply that the Project board, milestone or labels have already been created on GitHub.
+A deliberately lightweight workflow for **one maintainer plus coding agents**.
+
+## Configured GitHub resources
+
+On 2026-11-24, the [CDC Lakehouse Lab Project](https://github.com/users/TiaanViviers/projects/3) was linked to this repository. Its Board view groups by Status, with **Backlog**, **Ready**, **In Progress**, and **Done** in that order. The open [Phase 0 — Foundation milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/1) has no deadline. The seven labels below exist; `bug` was reused. GitHub's other pre-existing default labels remain, but are not part of this workflow.
+
+To add an approved issue, open it on GitHub and select the Project in its **Projects** sidebar, then set Status to Ready or Backlog. Alternatively, run `gh project item-add 3 --owner TiaanViviers --url <issue-url>` and set its Status on the board. Project access through `gh` requires the `project` authentication scope. No manual board setup remains.
+
+Verification used GitHub CLI 2.45.0: `gh project list --owner TiaanViviers --limit 100 --format json`, `gh project field-list 3 --owner TiaanViviers --format json`, and GitHub's GraphQL API confirmed the owner, repository link, Board layout, Status grouping and options. `gh label list -R TiaanViviers/cdc-lakehouse-lab --limit 100` and `gh api 'repos/TiaanViviers/cdc-lakehouse-lab/milestones?state=all&per_page=100'` confirmed the labels and sole milestone. The board and repository issue list were empty. CLI syntax was checked with `gh project --help` and [the GitHub CLI manual](https://cli.github.com/manual/gh_project); GraphQL capabilities were checked against the live schema. These observations describe setup, not implementation research results.
 
 ## One project board
 
@@ -72,9 +80,9 @@ Treat it as the **last issue to CLOSE/complete**, not necessarily the largest nu
 
 For Phase 0, create its own milestone as part of the initial GitHub setup **before** publishing Phase 0 tickets. We intentionally do not publish those tickets until they have been planned together.
 
-## Quick setup via GitHub website
+## Setup reference via GitHub website
 
-These are **one-time manual steps** if the integration cannot create Projects/milestones/labels:
+These are reference steps for a new environment; the resources above have already been configured:
 
 1. On your GitHub profile, open **Projects → New project → Board**. Name it `CDC Lakehouse Lab`; configure Status: Backlog, Ready, In Progress, Done. Add issues from `TiaanViviers/cdc-lakehouse-lab` as they are created.
 2. In the repository, open **Issues → Milestones → New milestone**. Create `Phase 0 — Foundation` without a due date.
