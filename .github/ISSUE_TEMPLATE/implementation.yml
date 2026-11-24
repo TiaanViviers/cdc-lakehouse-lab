@@ -1,0 +1,33 @@
+name: Implementation task
+description: A scoped, testable infrastructure or code change
+title: "[Implementation] "
+labels: []
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and research linkage
+      description: State why this is needed and relevant R-IDs.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and exclusions
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and uncertainties
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and verification commands
+      description: Include observable evidence, not just container health.
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Required documentation and experiments
