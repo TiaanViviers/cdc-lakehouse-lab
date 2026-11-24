@@ -38,6 +38,7 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 - [Asynchronous operational processing contract](docs/async-processing.md)
 - [Research questions](docs/research-questions.md)
 - [Component compatibility and candidate versions](docs/compatibility-matrix.md)
+- [Local runtime design](docs/local-runtime-design.md)
 - [Development guide](docs/development-guide.md)
 - [Roadmap and dependencies](docs/roadmap.md)
 - [Ticket naming / issue numbering](docs/issue-conventions.md)
