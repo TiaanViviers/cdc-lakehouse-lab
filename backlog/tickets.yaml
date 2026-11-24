@@ -1,5 +1,53 @@
-# Registry reserved for a later, reviewed GitHub issue-planning pass.
-# Each ticket will have id: "1.12", phase: 1, title: "...", status: proposed|published|closed,
-# github_issue: <number or null>, dependencies: ["1.4"], research_questions: ["R01"].
+# Proposed Phase 0 backlog. Review and approve before publishing issues.
+# Ticket IDs are strings. GitHub issue numbers are separate.
+# "proposed" is not "published"; publishing is a separate, approved action.
 schema_version: 1
-tickets: []
+tickets:
+  - id: "0.1"
+    phase: 0
+    title: "Verify component compatibility and candidate versions"
+    status: proposed
+    github_issue: null
+    labels: ["research", "priority:high"]
+    dependencies: []
+    research_questions: ["R01", "R06", "R07", "R09", "R10", "R11", "R17", "R22"]
+  - id: "0.2"
+    phase: 0
+    title: "Design local Docker topology and isolation boundaries"
+    status: proposed
+    github_issue: null
+    labels: ["docs"]
+    dependencies: ["0.1"]
+    research_questions: ["R07", "R15"]
+  - id: "0.3"
+    phase: 0
+    title: "Specify synthetic source schema and deterministic fixtures"
+    status: proposed
+    github_issue: null
+    labels: ["docs"]
+    dependencies: []
+    research_questions: ["R02", "R03", "R13"]
+  - id: "0.4"
+    phase: 0
+    title: "Define phase-level correctness and observability protocol"
+    status: proposed
+    github_issue: null
+    labels: ["research"]
+    dependencies: ["0.3"]
+    research_questions: ["R04", "R05", "R13", "R16", "R21", "R25"]
+  - id: "0.5"
+    phase: 0
+    title: "Establish minimal repository developer tooling"
+    status: proposed
+    github_issue: null
+    labels: ["feature"]
+    dependencies: ["0.2"]
+    research_questions: []
+  - id: "0.6"
+    phase: 0
+    title: "Review Phase 0 findings and publish Phase 1 tickets"
+    status: proposed
+    github_issue: null
+    labels: ["docs"]
+    dependencies: ["0.1", "0.2", "0.3", "0.4", "0.5"]
+    research_questions: []
