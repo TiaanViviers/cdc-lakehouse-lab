@@ -1,8 +1,16 @@
 name: Research experiment
 description: Test one hypothesis and record reproducible evidence
-title: "[Experiment] "
+title: ""
 labels: []
 body:
+  - type: input
+    id: ticket_id
+    attributes:
+      label: Stable phase ticket ID
+      description: Prefix the issue TITLE with phase.sequence, e.g. 2.4 Test replication recovery.
+      placeholder: "2.4"
+    validations:
+      required: true
   - type: input
     id: question
     attributes:

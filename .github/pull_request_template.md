@@ -1,4 +1,4 @@
-## Purpose / linked issue
+## Purpose / linked issue (stable phase.ticket ID + GitHub #number)
 
 ## Changes
 
@@ -11,6 +11,7 @@
 ## Risks, limitations, unresolved questions
 
 ## Checklist
+- [ ] Stable ticket ID referenced where applicable (e.g. 1.12)
 - [ ] No secrets, proprietary content or production connections
 - [ ] Tests and relevant manual inspection completed
 - [ ] Reproducible instructions documented

@@ -1,0 +1,5 @@
+# Registry reserved for a later, reviewed GitHub issue-planning pass.
+# Each ticket will have id: "1.12", phase: 1, title: "...", status: proposed|published|closed,
+# github_issue: <number or null>, dependencies: ["1.4"], research_questions: ["R01"].
+schema_version: 1
+tickets: []
