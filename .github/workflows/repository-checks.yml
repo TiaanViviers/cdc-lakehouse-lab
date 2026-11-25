@@ -18,7 +18,8 @@ jobs:
           persist-credentials: false
       - name: Validate repository
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          # The first parent of the checked-out PR merge commit is the target tip.
+          BASE: HEAD^1
         run: make help check
       - name: Test repository checks
         run: sh tests/repository-checks.sh

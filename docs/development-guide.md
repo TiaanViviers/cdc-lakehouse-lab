@@ -14,7 +14,7 @@ Stage new files before validation so Git includes them. `make check` runs two ta
 - `make check-whitespace` checks added lines for Git whitespace errors. It compares the Git index with `HEAD` by default and checks tracked unstaged changes against the index. Run `make check BASE=origin/main` after fetching `main` to include your committed branch changes.
 - `make check-local-files` checks representative ignored paths, rejects indexed files that match the repository's ignore rules, and requires an indexed `.env.example` with at least one assignment. Every assignment must use a placeholder of the form `<replace-with-name>`. Stage template edits before checking them. Review the staged diff for credentials and generated data under other names.
 
-The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main` and checks the proposed merge against the pull request's base commit. It also runs `sh tests/repository-checks.sh` to exercise the checks in a disposable Git repository. Unit and integration checks for the lakehouse are planned as described below.
+The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main` and compares the proposed merge with its first parent, the target branch commit used for that merge. It also runs `sh tests/repository-checks.sh` to exercise the checks in a disposable Git repository. Unit and integration checks for the lakehouse are planned as described below.
 
 ### Ticket 0.5 validation record
 
@@ -30,6 +30,7 @@ On 2026-11-25, the review follow-up verified the Git index syntax against [Git d
 
 - `sh tests/repository-checks.sh` confirmed that the original check accepted a synthetic non-placeholder staged value when the working tree held the clean template. With the fix, the script passed and confirmed distinct rejection diagnostics for that case, staged trailing whitespace hidden by a clean working tree, and a staged template deletion with an untracked replacement.
 - The script also confirmed that clean fixtures pass, unstaged trailing whitespace fails, and committed trailing whitespace fails when `BASE` points to the clean commit. `make help check BASE=origin/main` passed on the ticket branch.
+- The first hosted review run failed with `fatal: bad object` because the event payload's base SHA was absent from the depth-two checkout after `main` advanced. GitHub documents that checkout uses the [pull request merge commit](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#how-the-merge-branch-affects-your-workflow) by default. The workflow now compares with `HEAD^1`, which resolves to that merge commit's first parent at depth two.
 
 See the ticket 0.5 pull request for the hosted run and its logs.
 
