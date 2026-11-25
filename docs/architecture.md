@@ -104,7 +104,7 @@ The source transaction must record a durable unique request/batch receipt atomic
 
 ## Phase 0 evidence and first implementation slice
 
-The [Phase 0 closeout](phase-0-closeout.md) records reviewed designs, version candidates and repository checks. The first implementation slice is the isolated PostgreSQL source simulator, with its own source volume, synthetic workload and direct SQL inspection. [Proposed ADR-001](decisions/ADR-001-phase-1-source-baseline.md) specifies a bounded logical-WAL configuration baseline for Phase 1. The remote consumer, publication and slots enter in Phase 2. Proof of the listed downstream integrations remains open.
+The [Phase 0 closeout](phase-0-closeout.md) records reviewed designs, version candidates and repository checks. The first implementation slice is the isolated PostgreSQL source simulator, with its own source volume, synthetic workload and direct SQL inspection. [ADR-001](decisions/ADR-001-phase-1-source-baseline.md) specifies a bounded logical-WAL configuration baseline for Phase 1. The remote consumer, publication and slots enter in Phase 2. Proof of the listed downstream integrations remains open.
 
 ## Integration risks to test
 

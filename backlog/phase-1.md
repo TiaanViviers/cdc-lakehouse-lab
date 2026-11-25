@@ -1,14 +1,14 @@
-# Proposed Phase 1 tickets — Operational Source Simulator
+# Published Phase 1 tickets — Operational Source Simulator
 
-**Status:** Pending human approval under [0.6 (#11)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/11). IDs are reserved in the [registry](tickets.yaml). Publication and board placement follow the [transition procedure](../docs/project-management.md#mandatory-final-transition-issue).
+**Status:** Approved and published under [0.6 (#11)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/11). See the [Phase 1 milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/2), [ticket registry](tickets.yaml) and [project board](https://github.com/users/TiaanViviers/projects/3).
 
 **Phase outcome:** A disposable, isolated PostgreSQL 16 source that a reviewer can reset, drive through the bounded synthetic workload and verify using exact SQL results. This covers F01 and the source portion of F15 in the [PoC specification](../docs/poc-specification.md). Phase 1 configures and inspects source WAL parameters. Publication/slot creation, replication credentials, DuckPipe, lake storage and all other services are outside scope. The source SQL aggregate is a fixture oracle for later use.
 
-**Implementation baseline:** [Local runtime design](../docs/local-runtime-design.md), [compatibility evidence](../docs/compatibility-matrix.md), [fixture v1 / seed 42](../docs/synthetic-workload.md), [verification protocol](../docs/verification-plan.md), [developer tooling](../docs/development-guide.md) and [proposed ADR-001](../docs/decisions/ADR-001-phase-1-source-baseline.md). Use small PRs, `make check`, exact runtime pins and redacted commands and observations. Service tests use verified disposable Compose services only. Use the verification protocol's run IDs and the experiment template for runtime findings. The Phase 1 evidence contributes source-side results to the listed research questions. Their full downstream acceptance conditions remain open.
+**Implementation baseline:** [Local runtime design](../docs/local-runtime-design.md), [compatibility evidence](../docs/compatibility-matrix.md), [fixture v1 / seed 42](../docs/synthetic-workload.md), [verification protocol](../docs/verification-plan.md), [developer tooling](../docs/development-guide.md) and [ADR-001](../docs/decisions/ADR-001-phase-1-source-baseline.md). Use small PRs, `make check`, exact runtime pins and redacted commands and observations. Service tests use verified disposable Compose services only. Use the verification protocol's run IDs and the experiment template for runtime findings. The Phase 1 evidence contributes source-side results to the listed research questions. Their full downstream acceptance conditions remain open.
 
 ## Dependencies and parallel work
 
-- **Initially Ready after publication:** 1.1 and 1.4. All other tickets start in Backlog. All tickets inherit the 0.6 handover dependency; immediate Phase 1 dependencies are below.
+- **Initially placed in Ready:** 1.1 and 1.4. All other tickets start in Backlog. All tickets inherit the 0.6 handover dependency; immediate Phase 1 dependencies are below.
 - **Critical path by dependency depth:** 1.1 → 1.2 → 1.3 → 1.5 → 1.6 or 1.7 → 1.8 → 1.9. S05 concurrency and S06 replay can be reviewed in parallel after 1.5. Each can exercise its own cases from S04. The integrated run joins them in S00–S06 order.
 - **Independent workstream:** 1.4 uses only the fixture specification. It can be reviewed while 1.1–1.3 progress and feeds the first runner checks in 1.5. SQL migrations can be authored from the schema spec while 1.2 is in progress; their acceptance runs against the 1.2 runtime.
 
@@ -21,7 +21,7 @@
 **Acceptance criteria**
 
 - [ ] Record tested Engine, Compose, host OS, firewall backend and exact apply, verification and undo commands for the dedicated lab host or VM. Demonstrate that a missing or failed control prevents source bring-up under the documented procedure.
-- [ ] On the intended internal network, a known peer succeeds via local service DNS. Probes to controlled routed IPv4 destinations representing LAN/VPN paths, IPv6 destinations and delegated DNS names fail within declared deadlines. Use reachable local test targets or document disabled paths with configuration and independent observations. Confirm service ports are unpublished by default.
+- [ ] On the intended internal network, a known peer succeeds via local service DNS. Probes to a controlled host-side service on the Docker bridge/gateway, controlled routed IPv4 destinations representing LAN/VPN paths, IPv6 destinations and delegated DNS names fail within declared deadlines. Use reachable local test targets or document disabled paths with configuration and independent observations. Confirm service ports are unpublished by default.
 - [ ] Document the repeatable commands for checking each actual source-profile network in 1.2. Record per-probe output and relevant routes/rules. Run only against lab-controlled endpoints and restore disposable probe state.
 
 **Validation and evidence:** Record topology, positive and negative controls, sanitized probe output (including timed failures) and startup-stop decision in the source runbook. Cite Docker guidance for the tested versions. If host isolation cannot be demonstrated, preserve the failing path and leave 1.2 runtime testing blocked.
@@ -34,7 +34,7 @@
 
 **Acceptance criteria**
 
-- [ ] Validate resolved Compose config and repeat the 1.1 probes on every actual source-profile network before starting its workloads. Run PostgreSQL with unpublished host ports, an authenticated readiness check and named persistence. Valid credentials succeed and invalid credentials are rejected. A clean stop/start using the same volume preserves a disposable sentinel value.
+- [ ] Validate resolved Compose config and repeat the 1.1 probes on every actual source-profile network before starting its workloads. Run PostgreSQL with unpublished host ports, an authenticated readiness check and named persistence. From the intended source-client network, demonstrate successful TCP authentication with valid credentials and rejection with invalid credentials. Record the applicable HBA rule and the client network. A clean stop/start using the same volume preserves a disposable sentinel value.
 - [ ] Enforce the proposed source cap of 768 MiB and 1 CPU or record a reviewed change. Document finite connection, logging, local disk and WAL stop thresholds. Verify engine limits and record actual CPU, memory and disk observations.
 - [ ] Query effective settings for `wal_level=logical`, finite positive slot/sender counts and finite `max_slot_wal_keep_size`. Confirm zero user publications and replication slots on a fresh source. Document the checkpoint behavior of the retention setting and record physical WAL disk usage separately.
 
@@ -78,6 +78,7 @@
 **Acceptance criteria**
 
 - [ ] A pinned Python/driver toolchain runs fixture v1/seed 42 with fixed UTC times, explicit IDs, deterministic order and finite connection/statement deadlines. Invalid scenario/seed or invalid sequence fails clearly and leaves rows intact.
+- [ ] Enforce the generator ceiling of 256 MiB and 0.5 CPU or record a reviewed alternative. Verify the effective limits through container and cgroup inspection and retain that output.
 - [ ] Guarded reset clears business rows and receipts and restores exact S00. A repeat reset from S04 reproduces S00. A fault between cleanup and seeding leaves the prior state intact.
 - [ ] Compare exact rows and report values independently after S00, S01, S02, S03 and S04. Confirm item 102 is present at S01 and absent at S03. Confirm item 101 retains `created_at` on update.
 - [ ] From a second connection, observe none of order 30, item 301, payment 302 or the S04 receipt while the transaction is held open. After commit, observe all four. Under forced rollback observe none and compare every business table and receipt to S03.
