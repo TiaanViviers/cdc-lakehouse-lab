@@ -1,0 +1,5 @@
+customers|[{"customer_id":901,"code":"C901","name":"Schema test","created_at":"2026-02-01T00:00:00+00:00","updated_at":"2026-02-01T00:00:00+00:00"}]
+orders|[{"order_id":910,"customer_id":901,"order_ref":"O910","status":"open","created_at":"2026-02-01T00:00:00+00:00","updated_at":"2026-02-01T00:00:00+00:00"}]
+order_items|[{"item_id":911,"order_id":910,"line_no":1,"sku":"Test","quantity":2,"unit_cents":0,"created_at":"2026-02-01T00:00:00+00:00","updated_at":"2026-02-02T00:00:00+00:00"}]
+payments|[{"payment_id":912,"order_id":910,"payment_ref":"P912","amount_cents":0,"created_at":"2026-02-01T00:00:00+00:00","updated_at":"2026-02-01T00:00:00+00:00"}]
+scenario_receipts|[{"fixture_version":"v1","seed":0,"scenario_id":"S04","payload_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]
