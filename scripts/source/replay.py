@@ -4,6 +4,7 @@ import psycopg
 from .checkpoints import check_state, read_state
 from .transactions import (
     SEQUENTIAL_WRITER_LOCK, FixtureError, apply_inserts, claim_s04, connect, write_transaction,
+    writer_identity,
 )
 from .workload import SEED, VERSION, payload_digest, s04_payload
 
@@ -71,11 +72,9 @@ def deliver(trace, payload, expected, delivery):
             if differences:
                 raise FixtureError(f"S04 delivery requires exact S03: {differences}")
             apply_inserts(writer, payload["operations"])
-            identity["xid"] = writer.execute(
-                "SELECT pg_current_xact_id_if_assigned()::text AS xid"
-            ).fetchone()["xid"]
-            trace("commit_requested", **identity)
-        trace("commit_returned", **identity)
+            identity = writer_identity(writer)
+            trace("commit_requested", delivery=delivery, **identity)
+        trace("commit_returned", delivery=delivery, **identity)
     return expected, "applied"
 
 

@@ -42,6 +42,11 @@ def write_transaction(connection):
         yield connection
 
 
+def writer_identity(writer):
+    identity = writer.execute("SELECT pg_current_xact_id_if_assigned()::text AS xid").fetchone()
+    return dict(backend_pid=writer.info.backend_pid, xid=identity["xid"])
+
+
 @contextmanager
 def sequential_writer(connection):
     """Hold the sequential runner lock through its post-transaction observation."""

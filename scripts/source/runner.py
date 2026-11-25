@@ -11,10 +11,11 @@ from uuid import UUID
 import psycopg
 
 from .checkpoints import check_state, observe, read_state, s04_visibility
+from .overlap import run_s05
 from .replay import ReplayUnknown, run_replay
 from .transactions import (
     SECRETS, FixtureError, apply_step, connect, reset_to_s00, sequential_writer,
-    write_transaction,
+    write_transaction, writer_identity,
 )
 from .workload import PREVIOUS, SEED, VERSION, s04_payload
 
@@ -55,11 +56,6 @@ def observed_checkpoint(trace, checkpoint, reader, event, *, include_rows=False)
     require_state(trace, checkpoint, state, event, reader.info.backend_pid,
                   include_rows=include_rows)
     return state
-
-
-def writer_identity(writer):
-    identity = writer.execute("SELECT pg_current_xact_id_if_assigned()::text AS xid").fetchone()
-    return dict(backend_pid=writer.info.backend_pid, xid=identity["xid"])
 
 
 def run_step(trace, writer, reader, scenario, rollback):
@@ -115,13 +111,15 @@ def parse_args(argv):
     parser.add_argument("--attempt", type=int, default=1)
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run")
-    run.add_argument("scenario", choices=(*PREVIOUS, "S06"))
+    run.add_argument("scenario", choices=(*PREVIOUS, "S05", "S06"))
     run.add_argument("--rollback", action="store_true", help="observe then roll back S04")
+    run.add_argument("--s05-fault", choices=("barrier-timeout", "after-a-commit"),
+                     help="inject a failure at the specified S05 boundary")
     reset = commands.add_parser("reset")
     reset.add_argument("--confirm", action="store_true", required=True)
     reset.add_argument("--fail-after-cleanup", action="store_true")
     inspect = commands.add_parser("inspect")
-    inspect.add_argument("scenario", choices=("empty", *PREVIOUS))
+    inspect.add_argument("scenario", choices=("empty", *PREVIOUS, "S05-A", "S05"))
 
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-p01-[0-9]{2}", args.run_id):
@@ -131,7 +129,12 @@ def parse_args(argv):
     rollback = getattr(args, "rollback", False)
     if rollback and args.scenario != "S04":
         parser.error("--rollback requires S04")
-    if getattr(args, "fail_after_cleanup", False):
+    s05_fault = getattr(args, "s05_fault", None)
+    if s05_fault and args.scenario != "S05":
+        parser.error("--s05-fault requires S05")
+    if s05_fault:
+        args.variant = s05_fault
+    elif getattr(args, "fail_after_cleanup", False):
         args.variant = "reset_failure"
     else:
         args.variant = "rollback" if rollback else "normal"
@@ -176,6 +179,8 @@ def main(argv=None):
         with connect("reader") as reader:
             if args.command == "inspect":
                 observed_checkpoint(trace, args.scenario, reader, "inspection", include_rows=True)
+            elif args.command == "run" and args.scenario == "S05":
+                run_s05(trace, reader, args.s05_fault)
             else:
                 with connect("writer") as writer, sequential_writer(writer):
                     if args.command == "reset":

@@ -73,10 +73,17 @@ def observe(reader):
 
 def check_state(checkpoint, state):
     actual, receipts = state
-    expected = ({table: [] for table in PRIMARY_KEYS} if checkpoint == "empty"
-                else load_expectations()[checkpoint])
+    if checkpoint == "empty":
+        expected = {table: [] for table in PRIMARY_KEYS}
+    else:
+        expectations = load_expectations()
+        if checkpoint == "S05-A":
+            # A changes the item and the report. Only B changes payments.
+            expected = dict(expectations["S05"], payments=expectations["S04"]["payments"])
+        else:
+            expected = expectations[checkpoint]
     problems = compare_checkpoint(expected, actual)
-    expected_receipts = S04_RECEIPT if checkpoint in ("S04", "S05", "S06") else []
+    expected_receipts = S04_RECEIPT if checkpoint in ("S04", "S05-A", "S05", "S06") else []
     if receipts != expected_receipts:
         problems.append(f"scenario_receipts: expected {expected_receipts!r}, got {receipts!r}")
     return problems
