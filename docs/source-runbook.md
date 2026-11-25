@@ -2,16 +2,22 @@
 
 **Decision, 2026-11-25. Use the dedicated VM and gate every actual source bridge immediately before startup.** The VM passed with its IPv4 and IPv6 rules applied. The bare workstation failed the host-gateway probe. The VM rules were rolled back after testing. Ticket 1.2 must apply them again and verify its resolved Compose configuration and networks.
 
+Run Docker commands from a shell on the intended machine. Define this helper in each staging or guest shell. The preflight uses the same explicit Unix socket for Engine and Compose.
+
+```sh
+labdocker() { docker --host unix:///var/run/docker.sock "$@"; }
+```
+
 ## Reproduce the negative experiment
 
 Run from the repository root on native Linux with Python 3, the local rootful Docker Unix socket, and the exact probe image in the daemon cache. The script resolves the staged linux/amd64 tag, verifies its ID against two immutable pins, and runs Node 20.20.2 by the verified ID. Verify the mapping on the staging machine before export. Every container overrides the image entrypoint. The script creates three disposable internal bridges (source, synthetic LAN, synthetic VPN), single-homed containers and a host process listening on an ephemeral port bound only to the source bridge gateway. Each container has a read-only root filesystem, 96 MiB memory, half a CPU and a 64-PID limit. The client uses the LAN fixture as its only explicit DNS upstream. The authoritative fixture answers only the synthetic A question for sentinel.isolation.test.
 
 ```sh
-docker --host unix:///var/run/docker.sock version
-docker compose version
+labdocker version
+labdocker compose version
 cat /etc/os-release
 uname -r
-docker --host unix:///var/run/docker.sock info --format '{{json .FirewallBackend}}'
+labdocker info --format '{{json .FirewallBackend}}'
 iptables --version
 ip6tables --version
 iptables -S DOCKER-USER
@@ -22,11 +28,11 @@ To transfer the fixture on read-only media, use the following staging commands a
 
 ```sh
 ref=public.ecr.aws/supabase/postgres-meta
-docker image inspect "$ref@sha256:a84cc713585eea7b401e4a2561ec4a1e48c87083d1c7ecb4502f204bb4391300" --format '{{.Os}}/{{.Architecture}} {{.Id}}'
-docker image save "$ref:v0.96.6" -o probe.tar
+labdocker image inspect "$ref@sha256:a84cc713585eea7b401e4a2561ec4a1e48c87083d1c7ecb4502f204bb4391300" --format '{{.Os}}/{{.Architecture}} {{.Id}}'
+labdocker image save "$ref:v0.96.6" -o probe.tar
 # Inside the VM, with the archive on read-only media
-docker load -i /mnt/probes/probe.tar
-docker image inspect public.ecr.aws/supabase/postgres-meta:v0.96.6 --format '{{.Id}}'
+labdocker load -i /mnt/probes/probe.tar
+labdocker image inspect public.ecr.aws/supabase/postgres-meta:v0.96.6 --format '{{.Id}}'
 ```
 
 **Observed** on Ubuntu 24.04.4 LTS, Linux 7.0.0-43-generic, amd64, Docker client/server 29.1.3, API 1.52, Compose 2.40.3+ds1-0ubuntu1~24.04.1. Engine reported driver iptables. The iptables frontend reported 1.8.10 (nf_tables). Reading DOCKER-USER returned permission denied. No firewall or VPN configuration was applied.
@@ -45,22 +51,24 @@ Source eth0 had only the connected 172.21.0.0/16 route, gateway listener 172.21.
 
 ## Dedicated-VM procedure for ticket 1.2
 
-**Run inside the approved guest as root.** Use a disposable Linux VM with console access, staged images, disconnected external uplinks, and dedicated rootful Engine using iptables. Inspect resolved `docker compose --profile source config` before creating anything. Require internal bridge networks for all source-profile services, no published ports, external DNS, host networking, proxy environment, privileged capabilities or host socket mounts. Record every effective network name. Precreate the actual empty bridges with the exact Compose settings (or use explicitly named external internal bridges). Use these same bridge IDs through startup. Stop on a missing, unexpected, replaced or occupied network. Direct Compose startup bypasses the procedure.
+**Run inside the approved guest as root.** Use a disposable Linux VM with console access, staged images, disconnected external uplinks, and dedicated rootful Engine using iptables. Review the Compose file before provisioning bridges, then inspect `labdocker compose -f "$COMPOSE_FILE" --profile source config` after exporting their IDs and before starting workloads. Require internal bridge networks for all source-profile services, no published ports, external DNS, host networking, proxy environment, privileged capabilities or host socket mounts. Record every effective network name. Precreate named, empty internal bridges outside Compose. Capture the full ID returned by each creation in a distinct exported variable and retain it through startup and rollback. For every service network, declare `external: true` and set its Compose `name` to the captured ID, for example `name: ${SOURCE_INPUT_ID:?}`. This is the Engine ID of the named bridge. Keep the Compose inputs, environment, daemon and firewall under exclusive operator control throughout the procedure. Stop on a missing, unexpected, replaced or occupied network. Direct Compose startup bypasses the procedure.
 
 For the standalone experiment, create the named test bridge in the guest and run the gate once before applying controls. Expect exit 1. For 1.2 use the actual precreated network names and configuration instead.
 
 ```sh
 NET=source-input
-docker network create --internal --ipv6 --opt com.docker.network.bridge.name=cdc-source1 "$NET"
-python3 scripts/isolation/preflight.py --network "$NET" && echo STARTUP-SENTINEL
+SOURCE_INPUT_ID=$(labdocker network create --internal --ipv6 --opt com.docker.network.bridge.name=cdc-source1 "$NET") || exit 1
+export SOURCE_INPUT_ID
+python3 scripts/isolation/preflight.py --network "$SOURCE_INPUT_ID" && echo STARTUP-SENTINEL
 ```
 
-On the approved VM, repeat the following for **each** source bridge. Set NET to its exact Docker network name. These commands require Docker already dispatches FORWARD to DOCKER-USER first for both families. Verify from the VM console and stop if either chain or dispatch is absent. Confirm neither proposed drop already exists before insertion so undo removes only this run's rules. Run privileged commands only on that VM with approval.
+On the approved VM, repeat the following for **each** source bridge. Use the full ID captured when provisioning each bridge. The example uses SOURCE_INPUT_ID. These commands require Docker already dispatches FORWARD to DOCKER-USER first for both families. Verify from the VM console and stop if either chain or dispatch is absent. Confirm neither proposed drop already exists before insertion so undo removes only this run's rules. Run privileged commands only on that VM with approval.
 
 ```sh
 set -eu
-id=$(docker network inspect -f '{{.Id}}' "$NET")
-br=$(docker network inspect -f '{{index .Options "com.docker.network.bridge.name"}}' "$NET")
+id=$SOURCE_INPUT_ID
+test "$(labdocker network inspect -f '{{.Id}}' "$id")" = "$id"
+br=$(labdocker network inspect -f '{{index .Options "com.docker.network.bridge.name"}}' "$id")
 br=${br:-br-${id%"${id#????????????}"}}
 ip link show dev "$br"
 for fw in iptables ip6tables; do
@@ -72,13 +80,10 @@ for fw in iptables ip6tables; do
 done
 ```
 
-In the same approved environment run the startup gate with positional arguments set to **all** resolved network names. The script validates each actual network and checks the first FORWARD jump and both bridge-specific rules in each family. Only DROP rules may precede the required drops. Keep the source stopped on any failure. Run immediately before startup and repeat after network, DNS, rules or daemon changes. No persisted pass token exists.
+Set COMPOSE_FILE to the reviewed Compose file. The gate derives all network IDs from the resolved source services, rejects managed networks and mutable network names, probes each ID, then rechecks the model and every ID before invoking Compose on the same local daemon. Compose 2.40.3 resolves external networks by full ID. Removal of an approved bridge makes the external reference unusable even if its operator-facing name is immediately reused. [Docker Compose external networks](https://docs.docker.com/reference/compose-file/networks/#external), [Compose 2.40.3 network resolution](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/create.go#L1393-L1419).
 
 ```sh
-set -eu
-test "$#" -gt 0
-for net do python3 scripts/isolation/preflight.py --network "$net"; done
-docker compose --profile source up -d --pull never
+python3 scripts/isolation/preflight.py --start-compose "$COMPOSE_FILE"
 ```
 
 After stopping workloads and before deleting each bridge, undo only the insertions that succeeded, using its recorded interface name. A disposable VM snapshot also permits whole-VM rollback.
@@ -93,10 +98,10 @@ done
 The harness normally removes its containers and temporary bridges on exit and closes the listener. An existing source bridge supplied by name stays in place. After interruption, set TAG to the exact printed run label; inspect the listed IDs before removing them. Never prune shared Docker state.
 
 ```sh
-docker ps -aq --filter "label=$TAG"
-docker network ls -q --filter "label=$TAG"
-docker ps -aq --filter "label=$TAG" | xargs -r docker rm -fv
-docker network ls -q --filter "label=$TAG" | xargs -r docker network rm
+labdocker ps -aq --filter "label=$TAG"
+labdocker network ls -q --filter "label=$TAG"
+labdocker ps -aq --filter "label=$TAG" | xargs -r docker --host unix:///var/run/docker.sock rm -fv
+labdocker network ls -q --filter "label=$TAG" | xargs -r docker --host unix:///var/run/docker.sock network rm
 ```
 
 Both label queries were empty after the workstation failure. The VM cleanup results appear below. Exact rule ordering is intentionally conservative. A deployment with another backend, OS, topology, DNS policy or Docker version needs a new verification record.
@@ -130,9 +135,41 @@ To repeat the missing-rule control after the successful sentinel, run the follow
 
 ```sh
 ip6tables -D DOCKER-USER -i "$br" ! -o "$br" -j DROP
-python3 scripts/isolation/preflight.py --network "$NET" && echo STARTUP-SENTINEL
+python3 scripts/isolation/preflight.py --network "$SOURCE_INPUT_ID" && echo STARTUP-SENTINEL
 # Run separately after observing exit 1
 ip6tables -I DOCKER-USER 1 -i "$br" ! -o "$br" -j DROP
 ```
 
-After undo, repeat the sentinel and expect host reachability to stop startup. Remove the standalone guest test bridge with `docker network rm "$NET"`. Observed final state: zero containers, only bridge/host/none networks, empty DOCKER-USER chains and default ACCEPT INPUT chains for both families. Workstation firewall and VPN settings were untouched. No PostgreSQL service ran.
+After undo, repeat the sentinel and expect host reachability to stop startup. Remove the standalone guest test bridge with `labdocker network rm "$SOURCE_INPUT_ID"`. Observed final state: zero containers, only bridge/host/none networks, empty DOCKER-USER chains and default ACCEPT INPUT chains for both families. Workstation firewall and VPN settings were untouched. No PostgreSQL service ran.
+
+## Compose handoff experiment, 2026-11-25
+
+Run the following only with the disposable guest bridge and the sentinel fixture. Begin with the ID captured at creation and both firewall families applied as above. The invalid context and socket exercise the explicit local-daemon selection. The sentinel emits one marker and stays running for endpoint inspection.
+
+```sh
+set -eu
+export DOCKER_CONTEXT=missing-review-context DOCKER_HOST=unix:///run/intentionally-absent-review.sock
+COMPOSE_FILE=tests/integration/isolation-sentinel.yaml
+sentinel_compose() { labdocker compose -f "$COMPOSE_FILE" --profile source "$@"; }
+gate() { python3 scripts/isolation/preflight.py --start-compose "$COMPOSE_FILE"; }
+gate
+cid=$(sentinel_compose ps -q sentinel)
+test "$(labdocker inspect -f '{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}' "$cid")" = "$SOURCE_INPUT_ID"
+test "$(labdocker logs "$cid")" = STARTUP-SENTINEL
+sentinel_compose down
+labdocker network rm "$SOURCE_INPUT_ID"
+for state in missing replaced; do
+    if [ "$state" = replaced ]; then
+        replacement=$(labdocker network create --ipv6 --internal --opt "com.docker.network.bridge.name=$br" "$NET")
+        test "$replacement" != "$SOURCE_INPUT_ID"
+    fi
+    if gate; then exit 1; fi
+    # Sentinel-only control for removal between final inspection and Compose startup.
+    if sentinel_compose up -d --no-build --pull never; then exit 1; fi
+    test -z "$(sentinel_compose ps --all -q)"
+done
+```
+
+The approved ID and the running sentinel's inspected NetworkID were identical (`a190bcde23f8…`). Gateway probes timed out in 1.59 s (IPv4) and 1.58 s (IPv6). The sentinel emitted its exact marker. With the network missing, both the gate and the separate Compose control returned 1. Recreating the same network and bridge names produced ID `d097e5256849…`; both commands again returned 1. The gate failed at inspection of the original ID. Compose reported the external network could not be found. Both negative controls left the sentinel project with zero containers.
+
+Use the undo loop above with the recorded bridge interface, then remove the disposable replacement by its captured ID. The guest ended with zero containers and only its three default Docker networks. Ticket 1.2 must repeat the gate with its own Compose file and bridge IDs.

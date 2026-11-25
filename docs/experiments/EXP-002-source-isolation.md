@@ -16,3 +16,5 @@ The [source runbook](../source-runbook.md) records the topology, commands, versi
 ## Interpretation and follow-up
 
 A connected gateway requires explicit guest INPUT controls. VM rollback restored both host paths. Ticket 1.2 can use the tested procedure and must obtain a fresh pass on each actual source bridge. R01 and R16 still require their database and inspection evidence.
+
+On review, the Compose handoff was tested with an external network referenced by full Engine ID. The sentinel's inspected endpoint matched that ID, even with an invalid default context and socket. Removing the network, then recreating its name and interface with a different ID, blocked both the gate and the Compose sentinel in each case. The [handoff record](../source-runbook.md#compose-handoff-experiment-2026-11-25) includes the commands, controls and cleanup. The existing offline unit suite now exercises the firewall, probe verdicts and startup gate.

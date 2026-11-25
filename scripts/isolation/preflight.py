@@ -2,6 +2,7 @@
 import argparse
 import contextlib
 import json
+import re
 from pathlib import Path
 import socket
 import socketserver
@@ -61,6 +62,8 @@ def main(stack, network):
 
     source = network or bridge("-source")
     info = json.loads(docker("network", "inspect", source))[0]
+    if network and re.fullmatch("[0-9a-f]{64}", network) and info["Id"] != network:
+        raise SystemExit("STOP: source network identity mismatch")
     if info["Driver"] != "bridge" or not info["Internal"] or info["Containers"]:
         raise SystemExit("STOP: require empty internal source bridge")
     gateway = next(c["Gateway"] for c in info["IPAM"]["Config"] if "." in c.get("Gateway", ""))
@@ -118,9 +121,7 @@ def main(stack, network):
         result = subprocess.run([*DOCKER, "exec", cid, "node", "/probe.js", mode, dst, arg, v4],
                                 text=True, capture_output=True, timeout=4)
         msg = (result.stdout + result.stderr).strip()
-        denied = result.returncode == 1 and msg in {
-            "ETIMEDOUT", "ENETUNREACH", "EHOSTUNREACH", "EREFUSED", "ESERVFAIL"}
-        ok = result.returncode == 0 if positive else denied
+        ok = probe_passed(positive, result.returncode, msg)
         passed &= ok
         print(f"{label}: {'PASS' if ok else 'FAIL'} {msg} ({time.monotonic()-start:.2f}s)", flush=True)
     if not passed:
@@ -128,6 +129,18 @@ def main(stack, network):
     if not network:
         raise SystemExit("STOP: source startup requires the actual source network")
     interface = info["Options"].get("com.docker.network.bridge.name", "br-" + info["Id"][:12])
+    check_firewall(interface)
+    print("PASS: source bridge probes and required IPv4/IPv6 rules verified")
+
+
+def probe_passed(positive, returncode, message):
+    if positive:
+        return returncode == 0
+    return returncode == 1 and message in {
+        "ETIMEDOUT", "ENETUNREACH", "EHOSTUNREACH", "EREFUSED", "ESERVFAIL"}
+
+
+def check_firewall(interface):
     if docker("info", "--format", "{{.FirewallBackend.Driver}}") != "iptables":
         raise SystemExit("STOP: unsupported firewall backend")
     for tool in ("iptables", "ip6tables"):
@@ -148,11 +161,49 @@ def main(stack, network):
                     raise SystemExit(f"STOP: {tool} {rule} precedes {expected}")
             else:
                 raise SystemExit(f"STOP: {tool} missing {expected}")
-    print("PASS: source bridge probes and required IPv4/IPv6 rules verified")
+
+
+def external_ids(model):
+    ids = set()
+    for service in model["services"].values():
+        if service.get("network_mode") or not service.get("networks"):
+            raise SystemExit("STOP: service requires explicit external networks")
+        for key in service["networks"]:
+            network = model["networks"][key]
+            identity = network.get("name", "")
+            if network.get("external") is not True or not re.fullmatch("[0-9a-f]{64}", identity):
+                raise SystemExit(f"STOP: {key} requires external: true and a full network ID as name")
+            ids.add(identity)
+    if not ids:
+        raise SystemExit("STOP: no source networks")
+    return sorted(ids)
+
+
+def start_compose(path):
+    compose = ["compose", "-f", str(path), "--profile", "source"]
+    model = json.loads(docker(*compose, "config", "--format", "json"))
+    ids = external_ids(model)
+    for identity in ids:
+        with contextlib.ExitStack() as cleanup:
+            main(cleanup, identity)
+    if json.loads(docker(*compose, "config", "--format", "json")) != model:
+        raise SystemExit("STOP: Compose configuration changed")
+    for identity in ids:
+        if docker("network", "inspect", "-f", "{{.Id}}", identity) != identity:
+            raise SystemExit("STOP: source network identity changed")
+    # Compose 2.40.3 resolves external networks by full ID. A same-name
+    # replacement after inspection cannot satisfy the original ID.
+    subprocess.run([*DOCKER, *compose, "up", "-d", "--no-build", "--pull", "never"], check=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--network", help="existing empty internal source network")
-    with contextlib.ExitStack() as cleanup:
-        main(cleanup, parser.parse_args().network)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--network", help="diagnose an existing empty internal source network")
+    mode.add_argument("--start-compose", type=Path, help="gate and start the source profile")
+    args = parser.parse_args()
+    if args.start_compose:
+        start_compose(args.start_compose)
+    else:
+        with contextlib.ExitStack() as cleanup:
+            main(cleanup, args.network)
