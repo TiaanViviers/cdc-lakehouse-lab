@@ -1,0 +1,32 @@
+# Use as an overlay only after the source passes the 1.1 startup gate.
+services:
+  fixture-runner:
+    profiles: [generator]
+    image: cdc-lab-fixture-runner:v1-1.5
+    platform: linux/amd64
+    pull_policy: never
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 32
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: local
+      options:
+        max-size: 1m
+        max-file: '2'
+    networks: [source-input]
+    secrets:
+      - source_fixture_reader_password
+      - source_fixture_writer_password
+      - source_fixture_id
+
+secrets:
+  source_fixture_reader_password:
+    file: ./secrets/source-fixture-reader-password
+  source_fixture_writer_password:
+    file: ./secrets/source-fixture-writer-password
+  source_fixture_id:
+    file: ${SOURCE_FIXTURE_ID_FILE:-./secrets/${COMPOSE_PROJECT_NAME:?set the source Compose project}-fixture-id}

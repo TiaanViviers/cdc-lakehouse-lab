@@ -1,6 +1,6 @@
 # PostgreSQL source profile
 
-The [`source` profile](../compose.source.yaml) starts `source-db` on an isolated `source-input` bridge. Use the dedicated disconnected VM and firewall procedure in the [1.1 source startup gate](source-runbook.md#dedicated-vm-procedure-for-ticket-12). Use the administrator only for this disposable bootstrap and the following checks. The profile starts with an empty `source_lab` database and is ready for the Phase 1 schema ticket. [Runtime evidence](experiments/EXP-004-source-profile.md)
+The [`source` profile](../compose.source.yaml) starts `source-db` on an isolated `source-input` bridge. Use the dedicated disconnected VM and firewall procedure in the [1.1 source startup gate](source-runbook.md#dedicated-vm-procedure-for-ticket-12). Use the administrator only for this disposable bootstrap and the following checks. The profile starts with an empty `source_lab` database. Follow [schema setup](source-schema.md) and then the [sequential fixture runner](source-runner.md) to populate and inspect it. [Runtime evidence](experiments/EXP-004-source-profile.md)
 
 ## Stage and start
 

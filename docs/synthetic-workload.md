@@ -62,4 +62,4 @@ At each checkpoint, compare the full expected and actual rows in both directions
 
 ## Phase 1 decisions still open
 
-Ticket 1.3 specifies the [schema, receipt key and payload, and cleanup interfaces](source-schema.md). Runtime acceptance is tracked separately. The fixture runner interface, concurrency synchronization and source boundary observations are future Phase 1 work. Start from the [PG16.16 pin and digest](compatibility-matrix.md#image-provenance) recorded by ticket 0.1. Phase 2 verifies the CDC pairing and tests intermediate cross-table visibility.
+Ticket 1.3 specifies the [schema, receipt key and payload, and cleanup interfaces](source-schema.md). Runtime acceptance is tracked separately. Ticket 1.5 provides the [S00–S04 runner and reset interface](source-runner.md). S05 concurrency, S06 replay and the combined source gate remain separate Phase 1 tickets. Start from the [PG16.16 pin and digest](compatibility-matrix.md#image-provenance) recorded by ticket 0.1. Phase 2 verifies the CDC pairing and tests intermediate cross-table visibility.
