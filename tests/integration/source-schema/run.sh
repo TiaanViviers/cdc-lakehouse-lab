@@ -150,6 +150,12 @@ DELETE FROM fixture.installation;
 SET LOCAL SESSION AUTHORIZATION source_fixture_writer;
 SELECT fixture.cleanup(true, :'disposable_id'::uuid);
 SQL
+expect_error reset-database-oid-mismatch 55000 'disposable database identity mismatch' <<'SQL'
+BEGIN;
+UPDATE fixture.installation SET database_oid = 0;
+SET LOCAL SESSION AUTHORIZATION source_fixture_writer;
+SELECT fixture.cleanup(true, :'disposable_id'::uuid);
+SQL
 expect_error reset-cluster-mismatch 55000 'disposable database identity mismatch' <<'SQL'
 BEGIN;
 UPDATE fixture.installation SET system_identifier = 0;
