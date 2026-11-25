@@ -1,10 +1,10 @@
 # Phase 1 source startup gate
 
-**Decision, 2026-11-25. Stop before starting the source on the tested host.** The internal bridge allowed TCP to its host gateway. A service returning a known payload demonstrated the path even with no published ports. Ticket 1.2 runtime validation requires an approved dedicated environment and a fresh successful preflight.
+**Decision, 2026-11-25. Use the dedicated VM and gate every actual source bridge immediately before startup.** The VM passed with its IPv4 and IPv6 rules applied. The bare workstation failed the host-gateway probe. The VM rules were rolled back after testing. Ticket 1.2 must apply them again and verify its resolved Compose configuration and networks.
 
 ## Reproduce the negative experiment
 
-Run from the repository root on native Linux with Python 3, the local rootful Docker Unix socket, and the exact probe image in the daemon cache. The image digest in the script selects an already staged Node 20.20.2 runtime. Every container overrides the image entrypoint. The script creates three disposable internal bridges (source, synthetic LAN, synthetic VPN), single-homed containers and a host process listening on an ephemeral port bound only to the source bridge gateway. Each container has a read-only root filesystem, 96 MiB memory, half a CPU and a 64-PID limit. The client uses the LAN fixture as its only explicit DNS upstream. The authoritative fixture answers only the synthetic A question for sentinel.isolation.test.
+Run from the repository root on native Linux with Python 3, the local rootful Docker Unix socket, and the exact probe image in the daemon cache. The script resolves the staged linux/amd64 tag, verifies its ID against two immutable pins, and runs Node 20.20.2 by the verified ID. Verify the mapping on the staging machine before export. Every container overrides the image entrypoint. The script creates three disposable internal bridges (source, synthetic LAN, synthetic VPN), single-homed containers and a host process listening on an ephemeral port bound only to the source bridge gateway. Each container has a read-only root filesystem, 96 MiB memory, half a CPU and a 64-PID limit. The client uses the LAN fixture as its only explicit DNS upstream. The authoritative fixture answers only the synthetic A question for sentinel.isolation.test.
 
 ```sh
 docker --host unix:///var/run/docker.sock version
@@ -16,6 +16,17 @@ iptables --version
 ip6tables --version
 iptables -S DOCKER-USER
 python3 scripts/isolation/preflight.py && echo STARTUP-SENTINEL
+```
+
+To transfer the fixture on read-only media, use the following staging commands and load the archive inside the guest. On the classic image store, the inspected config ID is `sha256:c496f84f24947250e706f03aca4af956a099d8f7e5521279f47e4077964d339a`.
+
+```sh
+ref=public.ecr.aws/supabase/postgres-meta
+docker image inspect "$ref@sha256:a84cc713585eea7b401e4a2561ec4a1e48c87083d1c7ecb4502f204bb4391300" --format '{{.Os}}/{{.Architecture}} {{.Id}}'
+docker image save "$ref:v0.96.6" -o probe.tar
+# Inside the VM, with the archive on read-only media
+docker load -i /mnt/probes/probe.tar
+docker image inspect public.ecr.aws/supabase/postgres-meta:v0.96.6 --format '{{.Id}}'
 ```
 
 **Observed** on Ubuntu 24.04.4 LTS, Linux 7.0.0-43-generic, amd64, Docker client/server 29.1.3, API 1.52, Compose 2.40.3+ds1-0ubuntu1~24.04.1. Engine reported driver iptables. The iptables frontend reported 1.8.10 (nf_tables). Reading DOCKER-USER returned permission denied. No firewall or VPN configuration was applied.
@@ -32,11 +43,19 @@ python3 scripts/isolation/preflight.py && echo STARTUP-SENTINEL
 
 Source eth0 had only the connected 172.21.0.0/16 route, gateway listener 172.21.0.1, and IPv6 only on loopback. Docker reported no port publications on any fixture. TCP inactivity deadline is 1.5 s, DNS requests use one 500 ms attempt, and each container probe has a four-second outer deadline. A harness error stops the gate. The shell returned 1 and skipped STARTUP-SENTINEL. Routed failures establish absence of a usable path in this topology. They do not measure packet-filter drops. The controlled DNS result covers this upstream and network configuration only.
 
-## Candidate dedicated-host procedure for ticket 1.2
+## Dedicated-VM procedure for ticket 1.2
 
-**Requires approval and live verification.** Use a disposable Linux VM with console access, staged images, disconnected external uplinks, and dedicated rootful Engine using iptables. Inspect resolved `docker compose --profile source config` before creating anything. Require internal bridge networks for all source-profile services, no published ports, external DNS, host networking, proxy environment, privileged capabilities or host socket mounts. Record every effective network name. Precreate the actual empty bridges with the exact Compose settings (or use explicitly named external internal bridges). Use these same bridge IDs through startup. Stop on a missing, unexpected, replaced or occupied network. Direct Compose startup bypasses the procedure.
+**Run inside the approved guest as root.** Use a disposable Linux VM with console access, staged images, disconnected external uplinks, and dedicated rootful Engine using iptables. Inspect resolved `docker compose --profile source config` before creating anything. Require internal bridge networks for all source-profile services, no published ports, external DNS, host networking, proxy environment, privileged capabilities or host socket mounts. Record every effective network name. Precreate the actual empty bridges with the exact Compose settings (or use explicitly named external internal bridges). Use these same bridge IDs through startup. Stop on a missing, unexpected, replaced or occupied network. Direct Compose startup bypasses the procedure.
 
-On the approved VM, repeat the following for **each** source bridge. Set NET to its exact Docker network name. These proposed commands assume Docker already dispatches FORWARD to DOCKER-USER first for both families. Verify from the VM console and stop if either chain or dispatch is absent. Confirm neither proposed drop already exists before insertion so undo removes only this run's rules. Run privileged commands only on that VM with approval.
+For the standalone experiment, create the named test bridge in the guest and run the gate once before applying controls. Expect exit 1. For 1.2 use the actual precreated network names and configuration instead.
+
+```sh
+NET=source-input
+docker network create --internal --ipv6 --opt com.docker.network.bridge.name=cdc-source1 "$NET"
+python3 scripts/isolation/preflight.py --network "$NET" && echo STARTUP-SENTINEL
+```
+
+On the approved VM, repeat the following for **each** source bridge. Set NET to its exact Docker network name. These commands require Docker already dispatches FORWARD to DOCKER-USER first for both families. Verify from the VM console and stop if either chain or dispatch is absent. Confirm neither proposed drop already exists before insertion so undo removes only this run's rules. Run privileged commands only on that VM with approval.
 
 ```sh
 set -eu
@@ -53,7 +72,7 @@ for fw in iptables ip6tables; do
 done
 ```
 
-In the same approved environment run the startup gate with positional arguments set to **all** resolved network names. The script validates each actual network and checks first-rule placement in both families. Keep the source stopped on any failure. Run immediately before startup and repeat after network, DNS, rules or daemon changes. No persisted pass token exists.
+In the same approved environment run the startup gate with positional arguments set to **all** resolved network names. The script validates each actual network and checks the first FORWARD jump and both bridge-specific rules in each family. Only DROP rules may precede the required drops. Keep the source stopped on any failure. Run immediately before startup and repeat after network, DNS, rules or daemon changes. No persisted pass token exists.
 
 ```sh
 set -eu
@@ -80,6 +99,40 @@ docker ps -aq --filter "label=$TAG" | xargs -r docker rm -fv
 docker network ls -q --filter "label=$TAG" | xargs -r docker network rm
 ```
 
-Both label queries were empty after the recorded failure. The dedicated-VM apply, pass and undo sequence remains untested. Exact rule ordering is intentionally conservative. A deployment with another backend, OS, topology, DNS policy or Docker version needs a new verification record.
+Both label queries were empty after the workstation failure. The VM cleanup results appear below. Exact rule ordering is intentionally conservative. A deployment with another backend, OS, topology, DNS policy or Docker version needs a new verification record.
 
 **Verified documentation**, consulted 2026-11-25 for the Engine 29.1.3 experiment. Docker describes embedded DNS on custom networks, host reachability on internal bridges, and DOCKER-USER for forwarded traffic. Host-destined traffic needs an INPUT control as well. [Docker networking](https://docs.docker.com/engine/network/), [bridge gateway modes](https://docs.docker.com/engine/network/port-publishing/#gateway-modes), [Docker with iptables](https://docs.docker.com/engine/network/firewall-iptables/).
+
+## Dedicated VM observations, 2026-11-25
+
+QEMU 8.2.2 with KVM, two vCPUs, 2048 MiB RAM and `-nic none` booted Ubuntu 24.04.5 LTS amd64, kernel 6.8.0-147-generic, from a fresh qcow2 overlay. The base image SHA-256 was `04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94`, verified against Canonical's signed SHA256SUMS. Docker binaries and the probe archive entered through read-only media. Guest versions were Engine 29.1.3, Compose 2.40.3+ds1-0ubuntu1~24.04.1, Python 3.12.3, and both iptables frontends 1.8.10 (nf_tables). Engine reported the iptables driver. Before creating the test bridge, `ip -br link` listed only lo and docker0. [Ubuntu cloud images](https://cloud-images.ubuntu.com/noble/)
+
+**Offline import finding.** The initial guest run stopped at `docker run --pull=never` with “No such image” for the staging daemon's config ID. The guest containerd image store reported the archive's platform manifest ID `sha256:ccf3fb919284b063f6a57efadc504e4a8b2df8dc2985b8a8927c5ca05044e02c`. Inspecting that manifest in the exported archive confirmed its config digest exactly matched the staging ID above. The harness accepts those two verified IDs and runs by immutable ID.
+
+The source bridge had connected routes for 172.18.0.0/16 and fdfa:653f:4c09::/64, IPv6 link-local and loopback, and no usable off-bridge default route. Each host process could read its own marker at its gateway address. The guest reported no published fixture ports. Both FORWARD chains began with an unconditional jump to DOCKER-USER.
+
+| Probe with all rules applied | Same-side positive control | Result from source client |
+|---|---|---|
+| Peer by service DNS | Expected peer payload | cdc-isolation-v1, 0.08 s |
+| VM host IPv4 / IPv6 | Marker on both gateway listeners | ETIMEDOUT, 1.58 / 1.61 s |
+| LAN / VPN IPv4 | Marker, 0.09 / 0.08 s | ENETUNREACH, 0.07 / 0.08 s |
+| Off-bridge IPv6 | Marker, 0.08 s | ENETUNREACH, 0.08 s |
+| External DNS fixture | Exact A record 172.19.0.2, 0.21 s | Embedded resolver ESERVFAIL, 0.08 s |
+
+| VM state, in execution order | Gate and startup decision |
+|---|---|
+| No guest rules applied | Both host markers returned in 0.08 s. Exit 1. |
+| Both INPUT and DOCKER-USER drops in both families | Exit 0. STARTUP-SENTINEL printed once. INPUT counters showed 2 packets / 120 bytes for IPv4 and 13 / 872 for IPv6. Counters include other bridge traffic. |
+| Only the IPv6 DOCKER-USER drop removed | All traffic probes still passed. Exact missing-rule diagnostic, exit 1. |
+| All experimental rules removed | Host IPv4 and IPv6 markers returned in 0.09 and 0.10 s. Exit 1. |
+
+To repeat the missing-rule control after the successful sentinel, run the following inside the guest. Restoring this one rule allows the ordinary undo loop above to remove each insertion once.
+
+```sh
+ip6tables -D DOCKER-USER -i "$br" ! -o "$br" -j DROP
+python3 scripts/isolation/preflight.py --network "$NET" && echo STARTUP-SENTINEL
+# Run separately after observing exit 1
+ip6tables -I DOCKER-USER 1 -i "$br" ! -o "$br" -j DROP
+```
+
+After undo, repeat the sentinel and expect host reachability to stop startup. Remove the standalone guest test bridge with `docker network rm "$NET"`. Observed final state: zero containers, only bridge/host/none networks, empty DOCKER-USER chains and default ACCEPT INPUT chains for both families. Workstation firewall and VPN settings were untouched. No PostgreSQL service ran.

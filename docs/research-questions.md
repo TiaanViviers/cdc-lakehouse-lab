@@ -61,4 +61,4 @@ First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after
 
 These are hypotheses, not results.
 
-R01 and R16 remain **OPEN**. The [source preflight](experiments/EXP-002-source-isolation.md) reproduced access to a controlled host gateway listener and blocked source startup before database testing.
+R01 and R16 remain **OPEN**. The [source preflight](experiments/EXP-002-source-isolation.md) blocked startup on the bare workstation and passed on the dedicated VM with verified guest rules. Withholding one IPv6 forwarding rule blocked the startup sentinel. The actual source-profile networks require a fresh gate in 1.2.

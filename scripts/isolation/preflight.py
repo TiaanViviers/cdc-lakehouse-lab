@@ -10,7 +10,13 @@ import threading
 import time
 import uuid
 
-IMAGE = "public.ecr.aws/supabase/postgres-meta@sha256:a84cc713585eea7b401e4a2561ec4a1e48c87083d1c7ecb4502f204bb4391300"
+# Classic storage reports the config ID. The containerd store reports the
+# platform manifest ID from the offline archive containing that same config.
+IMAGE_TAG = "public.ecr.aws/supabase/postgres-meta:v0.96.6"
+PINNED_IDS = {
+    "sha256:c496f84f24947250e706f03aca4af956a099d8f7e5521279f47e4077964d339a",
+    "sha256:ccf3fb919284b063f6a57efadc504e4a8b2df8dc2985b8a8927c5ca05044e02c",
+}
 DOCKER = ["docker", "--host", "unix:///var/run/docker.sock"]
 FIXTURE = Path(__file__).with_name("probe.js").resolve()
 
@@ -24,7 +30,27 @@ class Marker(socketserver.BaseRequestHandler):
         self.request.sendall(b"cdc-isolation-v1")
 
 
+class IPv6Server(socketserver.TCPServer):
+    address_family = socket.AF_INET6
+
+
+def host_control(stack, gateway):
+    server_type = IPv6Server if ":" in gateway else socketserver.TCPServer
+    server = stack.enter_context(server_type((gateway, 0), Marker))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    stack.callback(server.shutdown)
+    port = server.server_address[1]
+    with socket.create_connection((gateway, port), 2) as sock:
+        if sock.makefile("rb").read() != b"cdc-isolation-v1":
+            raise SystemExit("STOP: host control missing")
+    print(f"Host positive {gateway}: expected marker")
+    return str(port)
+
+
 def main(stack, network):
+    image_id = docker("image", "inspect", "-f", "{{.Id}}", IMAGE_TAG)
+    if image_id not in PINNED_IDS:
+        raise SystemExit("STOP: unexpected probe image ID")
     tag = "cdc-preflight-" + uuid.uuid4().hex[:12]
     print("Run label", tag, flush=True)
 
@@ -44,7 +70,7 @@ def main(stack, network):
         ident = docker("run", "-d", "--pull=never", "--network", net, "--label", tag,
                        "--name", tag + suffix, "--memory", "96m", "--cpus", "0.5",
                        "--pids-limit", "64", "--read-only", "--cap-drop", "ALL",
-                       "-v", f"{FIXTURE}:/probe.js:ro", *opts, "--entrypoint", "node", IMAGE, *args)
+                       "-v", f"{FIXTURE}:/probe.js:ro", *opts, "--entrypoint", "node", image_id, *args)
         stack.callback(docker, "rm", "-fv", ident)
         if docker("port", ident):
             raise SystemExit("STOP: unexpected published port")
@@ -61,14 +87,8 @@ def main(stack, network):
     container(source, "-peer", ["/probe.js", "serve", "0.0.0.0"])
     client = container(source, "-client", hold, "--dns", v4)
     control = container(outside, "-control", hold, "--dns", v4)
-    server = stack.enter_context(socketserver.TCPServer((gateway, 0), Marker))
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    stack.callback(server.shutdown)
-    port = str(server.server_address[1])
-    with socket.create_connection((gateway, int(port)), 2) as sock:
-        if sock.makefile("rb").read() != b"cdc-isolation-v1":
-            raise SystemExit("STOP: host control missing")
-    print("Host positive: expected marker; all container ports unpublished")
+    port = host_control(stack, gateway)
+    print("All container ports unpublished")
     print("Source addresses", info["IPAM"]["Config"])
     print(docker("exec", client, "cat", "/proc/net/route", "/proc/net/ipv6_route"))
     print("Source IPv6 interfaces:", docker("exec", client, "cat", "/proc/net/if_inet6"))
@@ -76,6 +96,9 @@ def main(stack, network):
         ("peer DNS+TCP", client, True, "tcp", peer, "8181"),
         ("host", client, False, "tcp", gateway, port),
     ]
+    if info["EnableIPv6"]:
+        gateway6 = next(c["Gateway"] for c in info["IPAM"]["Config"] if ":" in c.get("Gateway", ""))
+        cases.append(("host IPv6", client, False, "tcp", gateway6, host_control(stack, gateway6)))
     for label, mode, dst, arg in [("LAN IPv4", "tcp", v4, "8181"),
                                   ("IPv6", "tcp", v6, "8181"),
                                   ("delegated DNS", "dns", v4, "53")]:
@@ -114,9 +137,17 @@ def main(stack, network):
             rules = subprocess.check_output([tool, "-S", chain], text=True).splitlines()
             target = "DOCKER-USER" if chain == "FORWARD" else "DROP"
             expected = " ".join(filter(None, ["-A", chain, match, "-j", target]))
-            first = next((rule for rule in rules if rule.startswith("-A ")), "")
-            if first != expected:
-                raise SystemExit(f"STOP: {tool} requires first rule {expected}")
+            # Other source bridges can have earlier DROP rules. An earlier
+            # jump or accept could bypass this control and must stop the gate.
+            for rule in rules:
+                if not rule.startswith("-A "):
+                    continue
+                if rule == expected:
+                    break
+                if chain == "FORWARD" or not rule.endswith(" -j DROP"):
+                    raise SystemExit(f"STOP: {tool} {rule} precedes {expected}")
+            else:
+                raise SystemExit(f"STOP: {tool} missing {expected}")
     print("PASS: source bridge probes and required IPv4/IPv6 rules verified")
 
 
