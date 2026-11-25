@@ -1,14 +1,16 @@
 BASE ?= HEAD
+PYTHON ?= python3
 WHITESPACE_CHECK = git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab diff --check --no-ext-diff
 
-.PHONY: help check check-whitespace check-local-files
+.PHONY: help check check-whitespace check-local-files test-unit
 
 help:
 	@printf '%s\n' \
 		'make help               List developer commands' \
 		'make check              Run all repository checks' \
 		'make check-whitespace   Check the index against BASE (default HEAD) and check unstaged changes' \
-		'make check-local-files  Check ignore rules, indexed paths and the indexed env example'
+		'make check-local-files  Check ignore rules, indexed paths and the indexed env example' \
+		'make test-unit          Run the offline unit tests'
 
 check: check-whitespace check-local-files
 
@@ -36,3 +38,6 @@ check-local-files:
 		{ print ".env.example:" NR ": expected a placeholder assignment"; invalid = 1 } \
 		END { if (count == 0) print ".env.example: expected at least one assignment"; exit (invalid || count == 0) }'
 	@printf '%s\n' 'Local file exclusions and environment placeholders passed.'
+
+test-unit:
+	$(PYTHON) -m unittest discover -s tests/unit -v
