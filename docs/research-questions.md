@@ -53,6 +53,8 @@ Ticket 1.2 verified the PostgreSQL 16.16 publisher baseline for R01, R04 and R05
 
 [Ticket 1.5](experiments/EXP-006-source-runner.md) exercises S00–S04 against the independent row and report oracle. This provides a verified S00 source baseline for R02 and source-side evidence of inserts, updates and deletion for R03. A separate reader observed the S04 business rows and receipt together after commit and exact S03 before commit and after forced rollback (R13). The same receipt persisted across a clean source restart (R25). All four remain **OPEN** at their full acceptance conditions. The next measurements include downstream parity and cutoff behavior and ambiguous-outcome replay.
 
+[Ticket 1.7](experiments/EXP-008-source-replay.md) verified source-side S04 receipt replay, including runner loss before and after commit, overlapping delivery, payload mismatch and an unavailable receipt lookup. All ordered row, timestamp, report and receipt comparisons matched the independent expectations. R03 and R25 remain **OPEN** at full scope. Ticket 1.8 owns the ordered S05→S06 source check, and Phase 6 owns operational write-back evidence.
+
 ## Research priorities
 
 Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six remain **OPEN**. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
