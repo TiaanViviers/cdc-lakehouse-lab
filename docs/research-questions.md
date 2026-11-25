@@ -60,3 +60,5 @@ First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after
 - **H7:** A durable request PostgreSQL and separate S3 artifact bucket can support delayed, idempotent source write-back without maintaining a bidirectionally replicated operational database.
 
 These are hypotheses, not results.
+
+R01 and R16 remain **OPEN**. The [source preflight](experiments/EXP-002-source-isolation.md) reproduced access to a controlled host gateway listener and blocked source startup before database testing.
