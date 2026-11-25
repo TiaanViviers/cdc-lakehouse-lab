@@ -45,11 +45,13 @@ Ticket 1.2 verified the PostgreSQL 16.16 publisher baseline for R01, R04 and R05
 | R27 | Does separate request processing isolate preparation from source workload? | Source unavailable/slow scenarios, bounded source writes | Prep continues where inputs allow; commits wait |
 | R28 | Does write-back flow back through one-way CDC without a feedback loop? | Commit test batch, inspect Bronze and source counts | Correct final state, no reverse replication / recursion |
 
-## Phase 1 fixture oracle evidence
+## Phase 1 source evidence
 
 [Ticket 1.4](experiments/EXP-003-fixture-oracle.md) validated the offline expected rows, both customer aggregates and mismatch detection for R02, R03 and R13. The three questions remain **OPEN**. Initial snapshot parity, applied changes and cross-table visibility still require observations of the source and downstream systems.
 
 [Ticket 1.3](experiments/EXP-005-source-schema.md) verified source schema and grants, preservation on repeat bootstrap, and guarded cleanup and rollback on PostgreSQL 16.16 in the isolated ticket 1.2 environment. R02, R03 and R13 remain **OPEN** pending workload execution and downstream comparisons.
+
+[Ticket 1.5](experiments/EXP-006-source-runner.md) exercises S00–S04 against the independent row and report oracle. This provides a verified S00 source baseline for R02 and source-side evidence of inserts, updates and deletion for R03. A separate reader observed the S04 business rows and receipt together after commit and exact S03 before commit and after forced rollback (R13). The same receipt persisted across a clean source restart (R25). All four remain **OPEN** at their full acceptance conditions. The next measurements include downstream parity and cutoff behavior and ambiguous-outcome replay.
 
 ## Research priorities
 
