@@ -2,6 +2,8 @@
 
 **Decision, 2026-11-25. Use the dedicated VM and gate every actual source bridge immediately before startup.** The VM passed with its IPv4 and IPv6 rules applied. The bare workstation failed the host-gateway probe. The VM rules were rolled back after testing. Follow the [PostgreSQL source profile runbook](source-profile.md) to apply and verify the rules for the `source` profile.
 
+For the full S00–S06 gate, fault suites, and read-only inspection, see [Verify the Phase 1 source gate](source-gate.md).
+
 Run Docker commands from a shell on the intended machine. Define this helper in each staging or guest shell. The preflight uses the same explicit Unix socket for Engine and Compose.
 
 ```sh

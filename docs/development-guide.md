@@ -92,6 +92,8 @@ Put service-free tests under `tests/unit/`. Put service-dependent tests under `t
 - Failure: stopped CDC, replay, delayed flush, killed transformation worker, reporting service/catalog/S3 outage, source outage during write-back, crash after commit before acknowledgement.
 - Benchmarks: lag, sizes, memory, CPU, runtime (measurement, not premature acceptance thresholds).
 
+See the [Phase 1 source gate](source-gate.md) for the Docker-dependent `make test-integration` procedure and its evidence.
+
 ### Offline unit tests
 
 Use CPython 3.12.3 (the exact CI pin) and GNU Make from the repository root. The suite uses standard-library `unittest` and runs without package installs, network access or services. Set `PYTHON` to select a local interpreter when `python3` resolves to a different version.
