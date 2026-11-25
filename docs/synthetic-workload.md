@@ -62,4 +62,4 @@ At each checkpoint, compare the full expected and actual rows in both directions
 
 ## Phase 1 decisions still open
 
-Choose the receipt schema and reconciliation protocol, fixture runner interface, concurrency synchronization mechanism, exact SQL migrations and reset guard. Start Phase 1 from the [PG16.16 candidate and digest](compatibility-matrix.md#image-provenance) recorded by ticket 0.1. Phase 2 verifies the actual CDC pairing. Decide how source boundaries are captured and how intermediate cross-table visibility is measured; do not claim a consistent lake cutoff before testing it. Exact SQL syntax and runtime compatibility remain unverified here.
+Ticket 1.3 specifies the [schema, receipt key and payload, and cleanup interfaces](source-schema.md). Runtime acceptance is tracked separately. The fixture runner interface, concurrency synchronization and source boundary observations are future Phase 1 work. Start from the [PG16.16 pin and digest](compatibility-matrix.md#image-provenance) recorded by ticket 0.1. Phase 2 verifies the CDC pairing and tests intermediate cross-table visibility.
