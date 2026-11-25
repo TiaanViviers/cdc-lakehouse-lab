@@ -29,7 +29,7 @@ Operational Phase 6 requires the source (phase 1), durable worker orchestration 
 ## Phase records and later research areas
 
 - **Phase 0:** see the [closeout and approval gate](phase-0-closeout.md).
-- **Phase 1:** see the [proposed source simulator backlog](../backlog/phase-1.md).
+- **Phase 1:** see the [published source simulator backlog](../backlog/phase-1.md).
 - **Phase 2:** remote DuckPipe, publication and slots on the Phase 1 source baseline, snapshot parity, LSN/slot observation and stop/restart scenario.
 - **Phase 3:** local S3-compatible bucket, catalog metadata, independent DuckDB, Parquet objects/snapshots, multi-writer unknowns.
 - **Phase 4:** Windmill runtime + one worker, read Bronze, Silver SQL, Gold Reporting/ML, Pipelines dependency experiments, readiness checks.

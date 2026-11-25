@@ -1,6 +1,7 @@
 # ADR-001 — Phase 1 source and WAL boundary
 
-- **Status:** Proposed
+- **Status:** Accepted
+- **Approval:** Maintainer approval on 2026-11-25 after [planning review](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/18)
 - **Date:** 2026-11-25
 - **Scope:** Disposable Phase 1 PostgreSQL simulator and the source boundary it will hand to Phase 2
 - **Related research IDs:** R01–R05, R13, R16, R25
@@ -23,7 +24,7 @@ Set and inspect `wal_level=logical`, finite sender/slot counts and finite slot r
 
 ## Consequences
 
-The source gate remains testable without DuckPipe and exposes a single known baseline for the first remote replication experiment. The retention parameter limits slot retention at checkpoints and does not bound all disk growth. A safe local host/VM, explicit stop thresholds and measured disk use are prerequisites. Exact WAL/resource limits, runner pins, receipt storage, reset identity and failure hooks are implementation decisions with validation criteria in the [draft backlog](../../backlog/phase-1.md).
+The source gate remains testable without DuckPipe and exposes a single known baseline for the first remote replication experiment. The retention parameter limits slot retention at checkpoints and does not bound all disk growth. A safe local host/VM, explicit stop thresholds and measured disk use are prerequisites. Exact WAL/resource limits, runner pins, receipt storage, reset identity and failure hooks are implementation decisions with validation criteria in the [published backlog](../../backlog/phase-1.md).
 
 ## Evidence and links
 

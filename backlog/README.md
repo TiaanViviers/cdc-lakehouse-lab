@@ -5,7 +5,7 @@
 The approved [numbering policy](../docs/issue-conventions.md) is `1.12 Implement Python generator` for phase 1, ticket 12. GitHub issue number `#NN` is separate and allocated by GitHub.
 
 - [Phase 0 — Foundation](phase-0.md) is published. The [closeout and approval gate](../docs/phase-0-closeout.md) records the handover status.
-- [Phase 1 — Operational Source Simulator](phase-1.md) is proposed. Registry entries with `status: proposed` reserve IDs without a GitHub issue number.
+- [Phase 1 — Operational Source Simulator](phase-1.md) is published. The registry maps its stable IDs to GitHub issues.
 
 Populate the registry in a reviewed backlog-planning PR before issue creation. After publication update `github_issue` and `status`. Never recycle used IDs.
 
