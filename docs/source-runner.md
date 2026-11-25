@@ -10,21 +10,21 @@ Build the linux/amd64 image on the staging host and transfer the archive on read
 mkdir -p artifacts
 set -o pipefail
 tar -cf - scripts/source/runner.Dockerfile scripts/source/runner.requirements.txt \
-    scripts/source/{runner,workload,checkpoints,transactions,overlap}.py \
+    scripts/source/{runner,workload,checkpoints,transactions,overlap,replay}.py \
     tests/{__init__,fixture_oracle}.py tests/fixtures/v1/expected.json |
     docker build --platform linux/amd64 -f scripts/source/runner.Dockerfile \
-        -t cdc-lab-fixture-runner:v1-1.5 -
-docker image save -o artifacts/runner.tar cdc-lab-fixture-runner:v1-1.5
+        -t cdc-lab-fixture-runner:v1-1.7 -
+docker image save -o artifacts/runner.tar cdc-lab-fixture-runner:v1-1.7
 # Inside the disconnected VM, after source startup and schema bootstrap
 labdocker load -i /mnt/source/runner.tar
-labdocker image inspect -f '{{.Id}} {{.Os}}/{{.Architecture}}' cdc-lab-fixture-runner:v1-1.5
+labdocker image inspect -f '{{.Id}} {{.Os}}/{{.Architecture}}' cdc-lab-fixture-runner:v1-1.7
 ```
 
 During schema password provisioning, save the two distinct disposable role passwords in root-owned files, mode `0600`, in the VM's repository-local `secrets/` directory. Use `source-fixture-writer-password` and `source-fixture-reader-password` as filenames. The reset identity file is the existing `secrets/${COMPOSE_PROJECT_NAME}-fixture-id` created at schema bootstrap. Use the UUID saved for that project and volume. The runner overlay mounts these files and attaches to the same external bridge ID as `source-db`. It publishes no ports and uses no source administrator credentials.
 
 ## Run and inspect
 
-Use the same `COMPOSE_PROJECT_NAME` and `SOURCE_INPUT_ID` as the verified source. Pause other fixture clients before writing or resetting. Each invocation selects one scenario and validates its complete predecessor, including the report and receipts. S00 requires the empty state. Use the guarded reset to start over from any previously populated checkpoint.
+Use the same `COMPOSE_PROJECT_NAME` and `SOURCE_INPUT_ID` as the verified source. Pause other fixture clients before sequential writes or reset. S00–S04 validate their complete predecessors, including the report and receipts. S00 requires the empty state. Use the guarded reset to start over from any previously populated checkpoint. The [S06 replay guide](source-replay.md) describes receipt-based recovery and its concurrent delivery test.
 
 ```bash
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-p01-01"

@@ -12,11 +12,12 @@ import psycopg
 
 from .checkpoints import check_state, observe, read_state, s04_visibility
 from .overlap import run_s05
+from .replay import ReplayUnknown, run_replay
 from .transactions import (
     SECRETS, FixtureError, apply_step, connect, reset_to_s00, sequential_writer,
     write_transaction, writer_identity,
 )
-from .workload import PREVIOUS, SEED, VERSION
+from .workload import PREVIOUS, SEED, VERSION, s04_payload
 
 
 class InjectedRollback(Exception):
@@ -110,7 +111,7 @@ def parse_args(argv):
     parser.add_argument("--attempt", type=int, default=1)
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run")
-    run.add_argument("scenario", choices=(*PREVIOUS, "S05"))
+    run.add_argument("scenario", choices=(*PREVIOUS, "S05", "S06"))
     run.add_argument("--rollback", action="store_true", help="observe then roll back S04")
     run.add_argument("--s05-fault", choices=("barrier-timeout", "after-a-commit"),
                      help="inject a failure at the specified S05 boundary")
@@ -170,6 +171,10 @@ def main(argv=None):
     trace = Trace(args)
     try:
         trace("start")
+        if args.command == "run" and args.scenario == "S06":
+            receipt, resolution = run_replay(trace, s04_payload())
+            trace("outcome", status="committed", receipt=receipt, resolution=resolution)
+            return 0
         disposable_id = read_disposable_id() if args.command == "reset" else None
         with connect("reader") as reader:
             if args.command == "inspect":
@@ -182,6 +187,9 @@ def main(argv=None):
                         run_reset(trace, writer, reader, disposable_id, args.fail_after_cleanup)
                     else:
                         run_step(trace, writer, reader, args.scenario, args.rollback)
+    except ReplayUnknown as error:
+        trace("outcome", status="unknown", stage=trace.stage, reason=str(error))
+        return 1
     except psycopg.Error as error:
         # Client connection errors can include configuration details. Server primary
         # diagnostics are sufficient for the fixture guards and statement deadlines.

@@ -10,6 +10,7 @@ from psycopg.rows import dict_row
 from .workload import fixture_time, insert_operations, payload_digest, s04_payload
 
 SECRETS = Path("/run/secrets")
+SEQUENTIAL_WRITER_LOCK = (1348076337, 15)
 
 
 class FixtureError(Exception):
@@ -49,11 +50,11 @@ def writer_identity(writer):
 @contextmanager
 def sequential_writer(connection):
     """Hold the sequential runner lock through its post-transaction observation."""
-    connection.execute("SELECT pg_advisory_lock(1348076337, 15)")
+    connection.execute("SELECT pg_advisory_lock(%s, %s)", SEQUENTIAL_WRITER_LOCK)
     try:
         yield
     finally:
-        connection.execute("SELECT pg_advisory_unlock(1348076337, 15)")
+        connection.execute("SELECT pg_advisory_unlock(%s, %s)", SEQUENTIAL_WRITER_LOCK)
 
 
 def claim_s04(connection, payload):

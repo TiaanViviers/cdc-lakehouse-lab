@@ -2,7 +2,7 @@
 services:
   fixture-runner:
     profiles: [generator]
-    image: cdc-lab-fixture-runner:v1-1.5
+    image: ${SOURCE_RUNNER_IMAGE:-cdc-lab-fixture-runner:v1-1.7}
     platform: linux/amd64
     pull_policy: never
     mem_limit: 256m
