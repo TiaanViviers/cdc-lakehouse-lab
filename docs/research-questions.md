@@ -4,11 +4,13 @@ Status vocabulary: **OPEN**, **DOC-VERIFIED**, **EXPERIMENT-VERIFIED**, **BLOCKE
 
 Each experiment must report setup, version, hypothesis, procedure, expected result, *actual* output, artifacts, conclusion and remaining uncertainty. Use [the experiment template](experiments/TEMPLATE.md).
 
-## Phase 0 compatibility review
+## Phase 0 evidence and status
 
-Ticket 0.1 documented remote-source registration (R01), the catalog and object-store interfaces (R06–R07, R09), worker and Pipeline features (R10–R11), and remote catalog FDW support (R17). R22 has pinned candidate request-store prerequisites. All eight lab questions remain **OPEN** at their stated acceptance conditions. The first runtime check is stock PG16 to the digest-pinned DuckPipe PG18 image. A catalog-format mismatch is expected between that image's source dependency and the newest worker and serving candidates. Verify the actual catalog before attaching downstream clients. See the [compatibility matrix](compatibility-matrix.md) and [source and registry evidence](experiments/EXP-001-component-compatibility.md).
+Ticket 0.1 documented remote-source registration (R01), the catalog and object-store interfaces (R06–R07, R09), worker and Pipeline features (R10–R11), and remote catalog FDW support (R17). R22 has pinned candidate request-store prerequisites. All eight lab questions remain **OPEN** at their stated acceptance conditions. The first remote CDC check is stock PG16 to the digest-pinned DuckPipe PG18 image. A catalog-format mismatch is expected between that image's source dependency and the newest worker and serving candidates. Verify the actual catalog before attaching downstream clients. See the [compatibility matrix](compatibility-matrix.md) and [source and registry evidence](experiments/EXP-001-component-compatibility.md).
 
 Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in the [local runtime design](local-runtime-design.md). Both remain **OPEN**: neither S3 client behavior nor the metadata, Parquet and compute paths have been observed in the lab.
+
+[Phase 0 closeout](phase-0-closeout.md) confirms that the fixture (R02, R03, R13) and verification protocol are specified. Phase 1 can add source-side observations of commits, overlap, replay and inspectability, and record effective WAL configuration. The downstream claims in R01–R05, R13, R16 and R25 require evidence beyond the source. **All R01–R28 remain OPEN at their full acceptance conditions.** Record partial evidence with the relevant question before changing its status.
 
 | ID | Question | Experiment / evidence | Acceptance condition |
 | --- | --- | --- | --- |
@@ -28,7 +30,6 @@ Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in
 | R14 | What happens during transformation failure/retry? | Controlled worker termination and rerun | No silently corrupt final Gold state |
 | R15 | What is the role of catalog, S3 and worker compute? | SQL profiling and resource metrics | Trace metadata and Parquet read paths |
 | R16 | Is human observation sufficient? | Reproduce an event across UIs, logs and queries | Documented walkthrough identifies each stage |
-
 | R17 | Can a separate PostgreSQL-compatible SQL endpoint query remote DuckLake Gold? | Query Gold from `psql` via a `pg_ducklake` candidate with external catalog + S3 | Exact results match independent DuckDB |
 | R18 | Which SQL dialect/driver features are supported by the reporting interface? | Real PostgreSQL driver queries, error handling, parameterized queries | Supported/unsupported client behaviours recorded |
 | R19 | Can query-serving isolation enforce least-privilege read-only access? | Separate SQL roles and scoped S3/catalog credentials | Gold readable, protected schemas/writes rejected |

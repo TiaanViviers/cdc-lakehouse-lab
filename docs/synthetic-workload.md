@@ -62,4 +62,4 @@ At each checkpoint, compare the full expected and actual rows in both directions
 
 ## Phase 1 decisions still open
 
-Choose the receipt schema and reconciliation protocol, fixture runner interface, concurrency synchronization mechanism, exact SQL migrations and reset guard. Establish supported PostgreSQL and CDC versions through ticket 0.1. Decide how source boundaries are captured and how intermediate cross-table visibility is measured; do not claim a consistent lake cutoff before testing it. Exact SQL syntax and runtime compatibility remain unverified here.
+Choose the receipt schema and reconciliation protocol, fixture runner interface, concurrency synchronization mechanism, exact SQL migrations and reset guard. Start Phase 1 from the [PG16.16 candidate and digest](compatibility-matrix.md#image-provenance) recorded by ticket 0.1. Phase 2 verifies the actual CDC pairing. Decide how source boundaries are captured and how intermediate cross-table visibility is measured; do not claim a consistent lake cutoff before testing it. Exact SQL syntax and runtime compatibility remain unverified here.

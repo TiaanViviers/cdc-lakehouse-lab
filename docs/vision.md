@@ -38,6 +38,6 @@ Selected architectural **roles** are accepted for PoC exploration. Specific prod
 
 ## Research philosophy
 
-Each phase must deliver a working demonstration, deterministic validation, an inspection runbook and an experiment report. A well-characterized incompatibility is a useful result; silently replacing the requested stack is not.
+The foundation phase delivers a reviewed research plan and repository checks. Each implementation phase calls for a working demonstration, deterministic validation, an inspection runbook and an experiment report. A well-characterized incompatibility is a useful result; silently replacing the requested stack is not.
 
 The editable [architecture drawing](Data_System.drawio) is a communication aid, not proof of a functioning deployment.

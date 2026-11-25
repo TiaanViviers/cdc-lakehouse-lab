@@ -31,12 +31,12 @@ Additionally: an independent synthetic client requests a large token batch → r
 
 ## Acceptance strategy
 
-Every phase requires (1) observable running components, (2) actual row/aggregate correctness checks using deterministic fixtures, (3) exact reproducible commands and version pins, (4) recorded experiment evidence, and (5) explicit limitations. A green Docker status, a WAL LSN, or a successful workflow badge **does not** prove correctness.
+Phase 0 requires reviewed documentation, version provenance and repository checks. Each implementation phase requires (1) observable running components, (2) actual row/aggregate correctness checks using deterministic fixtures, (3) exact reproducible commands and version pins, (4) recorded experiment evidence, and (5) explicit limitations. A green Docker status, a WAL LSN, or a successful workflow badge **does not** prove correctness.
 
 ### Phase-by-phase exit gates
 
 - **M0:** Documentation reviewed; upstream version/edition matrix, licence constraints and safe Docker baseline agreed.
-- **M1:** Deterministic source scenarios reproduce exact intended states; inspect SQL and WAL settings.
+- **M1:** Deterministic source scenarios reproduce exact intended states; inspect SQL and bounded WAL settings on the isolated source. Phase 2 establishes publications, slots and consumer behavior.
 - **M2:** DuckPipe remote source snapshot + insert/update/delete reliably converge in a simplest supported local sink.
 - **M3:** Catalog + S3-compatible Parquet representation independently queryable by DuckDB, with snapshots and recovery documented.
 - **M4:** Windmill transformation chain works on exact DuckPipe-maintained lake; compare Pipelines/Flows and document external asset triggers.
