@@ -1,0 +1,73 @@
+installation|1|t|t|t
+column|customers|1|customer_id|integer|t
+column|customers|2|code|text|t
+column|customers|3|name|text|t
+column|customers|4|created_at|timestamp with time zone|t
+column|customers|5|updated_at|timestamp with time zone|t
+column|installation|1|schema_version|integer|t
+column|installation|2|system_identifier|bigint|t
+column|installation|3|database_oid|oid|t
+column|installation|4|disposable_id|uuid|t
+column|order_items|1|item_id|integer|t
+column|order_items|2|order_id|integer|t
+column|order_items|3|line_no|integer|t
+column|order_items|4|sku|text|t
+column|order_items|5|quantity|integer|t
+column|order_items|6|unit_cents|integer|t
+column|order_items|7|created_at|timestamp with time zone|t
+column|order_items|8|updated_at|timestamp with time zone|t
+column|orders|1|order_id|integer|t
+column|orders|2|customer_id|integer|t
+column|orders|3|order_ref|text|t
+column|orders|4|status|text|t
+column|orders|5|created_at|timestamp with time zone|t
+column|orders|6|updated_at|timestamp with time zone|t
+column|payments|1|payment_id|integer|t
+column|payments|2|order_id|integer|t
+column|payments|3|payment_ref|text|t
+column|payments|4|amount_cents|integer|t
+column|payments|5|created_at|timestamp with time zone|t
+column|payments|6|updated_at|timestamp with time zone|t
+column|scenario_receipts|1|fixture_version|text|t
+column|scenario_receipts|2|seed|integer|t
+column|scenario_receipts|3|scenario_id|text|t
+column|scenario_receipts|4|payload_sha256|text|t
+constraint|fixture.customers|customers_code_key|t|f|UNIQUE (code)
+constraint|fixture.customers|customers_pkey|t|f|PRIMARY KEY (customer_id)
+constraint|fixture.customers|customers_positive_id|t|f|CHECK ((customer_id > 0))
+constraint|fixture.installation|installation_pkey|t|f|PRIMARY KEY (schema_version)
+constraint|fixture.installation|installation_schema_version_check|t|f|CHECK ((schema_version = 1))
+constraint|fixture.order_items|order_items_nonnegative_cents|t|f|CHECK ((unit_cents >= 0))
+constraint|fixture.order_items|order_items_order_fk|t|f|FOREIGN KEY (order_id) REFERENCES fixture.orders(order_id) ON DELETE RESTRICT
+constraint|fixture.order_items|order_items_order_line_key|t|f|UNIQUE (order_id, line_no)
+constraint|fixture.order_items|order_items_pkey|t|f|PRIMARY KEY (item_id)
+constraint|fixture.order_items|order_items_positive_id|t|f|CHECK ((item_id > 0))
+constraint|fixture.order_items|order_items_positive_line|t|f|CHECK ((line_no > 0))
+constraint|fixture.order_items|order_items_positive_quantity|t|f|CHECK ((quantity > 0))
+constraint|fixture.orders|orders_customer_fk|t|f|FOREIGN KEY (customer_id) REFERENCES fixture.customers(customer_id) ON DELETE RESTRICT
+constraint|fixture.orders|orders_pkey|t|f|PRIMARY KEY (order_id)
+constraint|fixture.orders|orders_positive_id|t|f|CHECK ((order_id > 0))
+constraint|fixture.orders|orders_ref_key|t|f|UNIQUE (order_ref)
+constraint|fixture.orders|orders_valid_status|t|f|CHECK ((status = ANY (ARRAY['open'::text, 'paid'::text])))
+constraint|fixture.payments|payments_nonnegative_cents|t|f|CHECK ((amount_cents >= 0))
+constraint|fixture.payments|payments_order_fk|t|f|FOREIGN KEY (order_id) REFERENCES fixture.orders(order_id) ON DELETE RESTRICT
+constraint|fixture.payments|payments_pkey|t|f|PRIMARY KEY (payment_id)
+constraint|fixture.payments|payments_positive_id|t|f|CHECK ((payment_id > 0))
+constraint|fixture.payments|payments_ref_key|t|f|UNIQUE (payment_ref)
+constraint|fixture.scenario_receipts|scenario_receipts_fixture_version_check|t|f|CHECK ((fixture_version ~ '^v[1-9][0-9]*$'::text))
+constraint|fixture.scenario_receipts|scenario_receipts_pkey|t|f|PRIMARY KEY (fixture_version, seed, scenario_id)
+constraint|fixture.scenario_receipts|scenario_receipts_scenario_id_check|t|f|CHECK ((scenario_id ~ '^S[0-9]{2}$'::text))
+constraint|fixture.scenario_receipts|scenario_receipts_seed_check|t|f|CHECK ((seed >= 0))
+constraint|fixture.scenario_receipts|scenario_receipts_sha256|t|f|CHECK ((payload_sha256 ~ '^[0-9a-f]{64}$'::text))
+role|source_fixture_owner|f|f|f|f|f|f|f|f|t
+role|source_fixture_reader|t|f|f|f|f|f|t|f|f
+role|source_fixture_writer|t|f|f|f|f|f|t|f|f
+table ACL|customers|source_fixture_owner|{source_fixture_owner=arwdDxt/source_fixture_owner,source_fixture_writer=ar/source_fixture_owner,source_fixture_reader=r/source_fixture_owner}
+table ACL|installation|source_fixture_owner|
+table ACL|order_items|source_fixture_owner|{source_fixture_owner=arwdDxt/source_fixture_owner,source_fixture_writer=ard/source_fixture_owner,source_fixture_reader=r/source_fixture_owner}
+table ACL|orders|source_fixture_owner|{source_fixture_owner=arwdDxt/source_fixture_owner,source_fixture_writer=ar/source_fixture_owner,source_fixture_reader=r/source_fixture_owner}
+table ACL|payments|source_fixture_owner|{source_fixture_owner=arwdDxt/source_fixture_owner,source_fixture_writer=ar/source_fixture_owner,source_fixture_reader=r/source_fixture_owner}
+table ACL|scenario_receipts|source_fixture_owner|{source_fixture_owner=arwdDxt/source_fixture_owner,source_fixture_writer=ar/source_fixture_owner,source_fixture_reader=r/source_fixture_owner}
+column ACL|fixture.order_items|quantity|{source_fixture_writer=w/source_fixture_owner}
+column ACL|fixture.order_items|updated_at|{source_fixture_writer=w/source_fixture_owner}
+function|cleanup|source_fixture_owner|t|{source_fixture_owner=X/source_fixture_owner,source_fixture_writer=X/source_fixture_owner}
