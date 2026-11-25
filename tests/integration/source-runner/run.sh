@@ -85,7 +85,7 @@ pass after_rollback_S04 inspect S03
 pass run-S04 --attempt 2 run S04
 pass inspect-S04 inspect S04
 
-reject scenario 2 'invalid choice' run S05
+reject scenario 2 'invalid choice' run S99
 reject seed 2 'invalid choice' --seed 43 run S04
 reject version 2 'invalid choice' --fixture v2 run S04
 reject wrong_variant 2 '--rollback requires S04' run S03 --rollback

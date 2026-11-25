@@ -4,7 +4,7 @@ ENV PSYCOPG_IMPL=binary
 COPY scripts/source/runner.requirements.txt .
 RUN python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: \
     --require-hashes -r runner.requirements.txt && python -m pip check
-COPY scripts/source/workload.py scripts/source/transactions.py scripts/source/checkpoints.py scripts/source/runner.py scripts/source/
+COPY scripts/source/workload.py scripts/source/transactions.py scripts/source/checkpoints.py scripts/source/runner.py scripts/source/overlap.py scripts/source/
 COPY tests/__init__.py tests/fixture_oracle.py tests/
 COPY tests/fixtures/v1/expected.json tests/fixtures/v1/
 ENTRYPOINT ["timeout", "--kill-after=2s", "45s", "python", "-B", "-m", "scripts.source.runner"]
