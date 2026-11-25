@@ -1,0 +1,16 @@
+name: cdc-isolation-sentinel
+services:
+  sentinel:
+    profiles: [source]
+    image: public.ecr.aws/supabase/postgres-meta@sha256:ccf3fb919284b063f6a57efadc504e4a8b2df8dc2985b8a8927c5ca05044e02c
+    entrypoint: [node, -e, "console.log('STARTUP-SENTINEL'); setInterval(()=>{}, 60000)"]
+    read_only: true
+    cap_drop: [ALL]
+    mem_limit: 96m
+    cpus: 0.5
+    pids_limit: 64
+    networks: [source_input]
+networks:
+  source_input:
+    external: true
+    name: ${SOURCE_INPUT_ID:?use the full ID from network create}
