@@ -14,7 +14,7 @@ Stage new files before validation so Git includes them. `make check` runs two ta
 - `make check-whitespace` checks added lines for Git whitespace errors. It compares the Git index with `HEAD` by default and checks tracked unstaged changes against the index. Run `make check BASE=origin/main` after fetching `main` to include your committed branch changes.
 - `make check-local-files` checks representative ignored paths, rejects indexed files that match the repository's ignore rules, and requires an indexed `.env.example` with at least one assignment. Every assignment must use a placeholder of the form `<replace-with-name>`. Stage template edits before checking them. Review the staged diff for credentials and generated data under other names.
 
-The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main` and compares the proposed merge with its first parent, the target branch commit used for that merge. It also runs `sh tests/repository-checks.sh` to exercise the checks in a disposable Git repository. Unit and integration checks for the lakehouse are planned as described below.
+The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main` and compares the proposed merge with its first parent, the target branch commit used for that merge. It also runs `sh tests/repository-checks.sh` to exercise the checks in a disposable Git repository. The workflow also runs the [offline unit suite](#offline-unit-tests).
 
 ### Ticket 0.5 validation record
 
@@ -84,13 +84,28 @@ Before coding, independently verify: PG source WAL settings; DuckPipe PG host su
 
 ## Test hierarchy
 
-When the first testable code lands, put service-free tests under `tests/unit/` and add a `make test-unit` target to CI. Put service-dependent tests under `tests/integration/` and add an explicit `make test-integration` target when the relevant disposable local profile and its prerequisites are available. Document exact commands and fixture expectations in the tickets that add those suites.
+Put service-free tests under `tests/unit/`. Put service-dependent tests under `tests/integration/` and add an explicit `make test-integration` target when the relevant disposable local profile and its prerequisites are available. Document exact commands and fixture expectations in the tickets that add those suites.
 
-- Unit: generator input/output, deterministic event sequence.
+- Unit: fixture expectations and exact comparison. Future generator tests cover inputs, outputs and deterministic event sequence.
 - Integration: source to CDC, catalog to object store, independent DuckDB read, Windmill to lake, remote SQL endpoint to catalog/S3, request API to request DB to S3 to write-back.
 - Invariant: row-level data equality, updates/deletions, expected aggregated results.
 - Failure: stopped CDC, replay, delayed flush, killed transformation worker, reporting service/catalog/S3 outage, source outage during write-back, crash after commit before acknowledgement.
 - Benchmarks: lag, sizes, memory, CPU, runtime (measurement, not premature acceptance thresholds).
+
+### Offline unit tests
+
+Use CPython 3.12.3 (the exact CI pin) and GNU Make from the repository root. The suite uses standard-library `unittest` and runs without package installs, network access or services. Set `PYTHON` to select a local interpreter when `python3` resolves to a different version.
+
+```sh
+python3 --version
+make test-unit
+# Or supply your CPython 3.12.3 executable.
+make test-unit PYTHON=/path/to/python3.12
+```
+
+The [v1 / seed 42 expectations](../tests/fixtures/v1/expected.json) hold the complete checkpoint rows, including both customers' reporting expectations. To use the oracle in a later verification suite, load the expected checkpoint with `load_expectations()[step]` from `tests.fixture_oracle`. Pass it and the observed relation-to-rows mapping to `compare_checkpoint`, or use `compare_rows` for a single relation. Supply row mappings with integer keys and cents, preserved nulls and UTC ISO 8601 timestamps in `YYYY-MM-DDTHH:MM:SSZ` form at fixture precision. Preserve unexpected fractional seconds in observations so they surface as discrepancies. Keep every observed row in the iterable so duplicate keys can be detected. Comparison returns an empty list on equality or a list of diagnostics by relation, key and column. Invalid or duplicate keys stop matching for the affected relation.
+
+See the [fixture audit and offline experiment](experiments/EXP-003-fixture-oracle.md) for the arithmetic and example diagnostics.
 
 ## Development workflow
 
