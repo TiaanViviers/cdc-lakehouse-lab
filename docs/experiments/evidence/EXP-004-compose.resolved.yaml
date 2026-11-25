@@ -1,0 +1,83 @@
+name: cdc-source-12b
+services:
+  source-db:
+    profiles:
+      - source
+    cpus: 1
+    command:
+      - postgres
+      - -c
+      - max_connections=20
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=2
+      - -c
+      - max_replication_slots=2
+      - -c
+      - max_slot_wal_keep_size=128MB
+      - -c
+      - wal_keep_size=0
+      - -c
+      - min_wal_size=32MB
+      - -c
+      - max_wal_size=128MB
+      - -c
+      - checkpoint_timeout=5min
+      - -c
+      - archive_mode=off
+      - -c
+      - logging_collector=off
+      - -c
+      - log_connections=on
+    environment:
+      POSTGRES_DB: source_lab
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      POSTGRES_PASSWORD_FILE: /run/secrets/source_db_password
+      POSTGRES_USER: source_admin
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - password=$$(cat "$$POSTGRES_PASSWORD_FILE") && PGPASSWORD="$$password" PGREQUIREAUTH=scram-sha-256 PGCONNECT_TIMEOUT=3 psql -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -XqAtw -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null
+      timeout: 5s
+      interval: 10s
+      retries: 5
+      start_period: 30s
+    image: docker.io/library/postgres:16.16-bookworm@sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37
+    logging:
+      driver: local
+      options:
+        max-file: "3"
+        max-size: 5m
+    mem_limit: "805306368"
+    memswap_limit: "805306368"
+    networks:
+      source-input: null
+    pids_limit: 128
+    pull_policy: never
+    secrets:
+      - source: source_db_password
+        target: /run/secrets/source_db_password
+    shm_size: "134217728"
+    stop_grace_period: 30s
+    volumes:
+      - type: volume
+        source: source-pg
+        target: /var/lib/postgresql/data
+        volume: {}
+networks:
+  source-input:
+    name: 097eec3da934ccf6a7b4579dfb15d921b83bc992d4f1aa6034c5d77d0a43fa98
+    external: true
+volumes:
+  source-pg:
+    name: cdc-source-12b_source-pg
+secrets:
+  source_db_password:
+    name: cdc-source-12b_source_db_password
+    file: /REDACTED/secrets/source-db-password

@@ -50,6 +50,10 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 
 Run `make help` and `make check` from the repository root with Git and GNU Make. The checks cover changed-line whitespace, ignored and tracked paths, and environment placeholders. Run `make test-unit` with CPython 3.12.3 for the offline fixture oracle checks. See the [development guide](docs/development-guide.md#repository-validation) for the reproducible commands and results.
 
+## Run the source profile
+
+Use the [PostgreSQL source profile runbook](docs/source-profile.md) to stage PostgreSQL 16.16 and start it through the isolation gate in a dedicated VM.
+
 ## GitHub issues
 
 Ticket IDs use **`phase.sequence`**, for example **`1.12 Implement Python generator`**. This is a project ticket ID in the *title*, not the GitHub-generated issue number (e.g. `#34`). Allocate per-phase sequence values through the backlog registry; never silently renumber existing tickets. Do not create actual implementation issues until backlog review.

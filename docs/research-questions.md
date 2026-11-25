@@ -12,6 +12,8 @@ Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in
 
 [Phase 0 closeout](phase-0-closeout.md) confirms that the fixture (R02, R03, R13) and verification protocol are specified. Phase 1 can add source-side observations of commits, overlap, replay and inspectability, and record effective WAL configuration. The downstream claims in R01–R05, R13, R16 and R25 require evidence beyond the source. **All R01–R28 remain OPEN at their full acceptance conditions.** Record partial evidence with the relevant question before changing its status.
 
+Ticket 1.2 verified the PostgreSQL 16.16 publisher baseline for R01, R04 and R05. In the disconnected VM the actual bridge passed the 1.1 preflight, the peer authenticated over TCP, and a sentinel survived container recreation. Effective logical WAL settings, empty publication and slot catalogs, and the measured WAL directory footprint establish the starting point for Phase 2. All three questions remain **OPEN** pending the remote replication, acknowledgement and recovery experiments. [EXP-004](experiments/EXP-004-source-profile.md)
+
 | ID | Question | Experiment / evidence | Acceptance condition |
 | --- | --- | --- | --- |
 | R01 | Does remote DuckPipe successfully capture a PG16 source? | Reproducible container setup and documented replication handshake | Source changes replicated without installing DuckPipe on source |
