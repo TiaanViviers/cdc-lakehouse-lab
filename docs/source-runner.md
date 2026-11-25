@@ -1,6 +1,6 @@
-# Sequential source fixture runner
+# Source fixture runner
 
-[Ticket 1.5 (#23)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/23) runs fixture v1, seed 42, on the isolated Phase 1 source. [EXP-006](experiments/EXP-006-source-runner.md) records the exact checkpoint, visibility and resource evidence.
+[Ticket 1.5 (#23)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/23) runs fixture v1, seed 42, on the isolated Phase 1 source. [EXP-006](experiments/EXP-006-source-runner.md) records the sequential checkpoint, visibility and resource evidence. [S05 ordered overlap](source-overlap.md) uses the same CLI and staging instructions below.
 
 ## Stage and provision
 
@@ -10,7 +10,7 @@ Build the linux/amd64 image on the staging host and transfer the archive on read
 mkdir -p artifacts
 set -o pipefail
 tar -cf - scripts/source/runner.Dockerfile scripts/source/runner.requirements.txt \
-    scripts/source/{runner,workload,checkpoints,transactions}.py \
+    scripts/source/{runner,workload,checkpoints,transactions,overlap}.py \
     tests/{__init__,fixture_oracle}.py tests/fixtures/v1/expected.json |
     docker build --platform linux/amd64 -f scripts/source/runner.Dockerfile \
         -t cdc-lab-fixture-runner:v1-1.5 -
