@@ -45,6 +45,10 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 - [GitHub project workflow](docs/project-management.md)
 - [Agent rules](AGENTS.md)
 
+## Developer checks
+
+Run `make help` and `make check` from the repository root with Git and GNU Make. The checks cover changed-line whitespace, ignored and tracked paths, and environment placeholders. See the [development guide](docs/development-guide.md#repository-validation) for recorded results and the [test hierarchy](docs/development-guide.md#test-hierarchy) for planned suites.
+
 ## GitHub issues
 
 Ticket IDs use **`phase.sequence`**, for example **`1.12 Implement Python generator`**. This is a project ticket ID in the *title*, not the GitHub-generated issue number (e.g. `#34`). Allocate per-phase sequence values through the backlog registry; never silently renumber existing tickets. Do not create actual implementation issues until backlog review.

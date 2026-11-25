@@ -1,0 +1,25 @@
+name: Repository checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Validate repository
+        env:
+          # The first parent of the checked-out PR merge commit is the target tip.
+          BASE: HEAD^1
+        run: make help check
+      - name: Test repository checks
+        run: sh tests/repository-checks.sh
