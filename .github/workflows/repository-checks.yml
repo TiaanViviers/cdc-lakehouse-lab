@@ -20,3 +20,5 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: make help check
+      - name: Test repository checks
+        run: sh tests/repository-checks.sh

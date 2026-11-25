@@ -1,4 +1,5 @@
 BASE ?= HEAD
+WHITESPACE_CHECK = git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab diff --check --no-ext-diff
 
 .PHONY: help check check-whitespace check-local-files
 
@@ -6,13 +7,14 @@ help:
 	@printf '%s\n' \
 		'make help               List developer commands' \
 		'make check              Run all repository checks' \
-		'make check-whitespace   Check changes against BASE (default HEAD)' \
-		'make check-local-files  Check ignore rules, tracked paths and the env example'
+		'make check-whitespace   Check the index against BASE (default HEAD) and check unstaged changes' \
+		'make check-local-files  Check ignore rules, indexed paths and the indexed env example'
 
 check: check-whitespace check-local-files
 
 check-whitespace:
-	git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab diff --check --no-ext-diff "$(BASE)" --
+	$(WHITESPACE_CHECK) --cached "$(BASE)" --
+	$(WHITESPACE_CHECK) --
 
 check-local-files:
 	@set -eu; \
@@ -26,8 +28,11 @@ check-local-files:
 	if [ -n "$$tracked" ]; then \
 		printf 'Tracked paths match .gitignore:\n%s\n' "$$tracked" >&2; exit 1; \
 	fi
-	@awk '/^[[:space:]]*(#|$$)/ { next } \
+	@if ! git cat-file -e ':.env.example' 2>/dev/null; then \
+		printf '%s\n' '.env.example: expected a file in the Git index' >&2; exit 1; \
+	fi
+	@git cat-file blob ':.env.example' | awk '/^[[:space:]]*(#|$$)/ { next } \
 		/^[A-Z][A-Z0-9_]*=<replace-with-[a-z0-9-]+>$$/ { count++; next } \
 		{ print ".env.example:" NR ": expected a placeholder assignment"; invalid = 1 } \
-		END { if (count == 0) print ".env.example: expected at least one assignment"; exit (invalid || count == 0) }' .env.example
+		END { if (count == 0) print ".env.example: expected at least one assignment"; exit (invalid || count == 0) }'
 	@printf '%s\n' 'Local file exclusions and environment placeholders passed.'

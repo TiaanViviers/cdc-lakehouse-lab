@@ -11,10 +11,10 @@ make check
 
 Stage new files before validation so Git includes them. `make check` runs two targets:
 
-- `make check-whitespace` checks added lines for Git whitespace errors. It compares tracked working-tree content against `HEAD` by default. Run `make check BASE=origin/main` after fetching `main` to include your committed branch changes.
-- `make check-local-files` checks representative ignored paths, rejects tracked files that match the repository's ignore rules, and requires every assignment in `.env.example` to use a placeholder of the form `<replace-with-name>`. Review the staged diff for credentials and generated data under other names.
+- `make check-whitespace` checks added lines for Git whitespace errors. It compares the Git index with `HEAD` by default and checks tracked unstaged changes against the index. Run `make check BASE=origin/main` after fetching `main` to include your committed branch changes.
+- `make check-local-files` checks representative ignored paths, rejects indexed files that match the repository's ignore rules, and requires an indexed `.env.example` with at least one assignment. Every assignment must use a placeholder of the form `<replace-with-name>`. Stage template edits before checking them. Review the staged diff for credentials and generated data under other names.
 
-The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main`. It checks the proposed merge against the pull request's base commit. Unit and integration checks are planned as described below.
+The [Repository checks workflow](../.github/workflows/repository-checks.yml) runs `make help check` on pull requests to `main` and checks the proposed merge against the pull request's base commit. It also runs `sh tests/repository-checks.sh` to exercise the checks in a disposable Git repository. Unit and integration checks for the lakehouse are planned as described below.
 
 ### Ticket 0.5 validation record
 
@@ -25,6 +25,11 @@ Observed locally with Git 2.43.0 and GNU Make 4.3:
 - `make` and `make help` listed the four developer commands. `make check` and `make help check BASE=origin/main` passed both repository checks.
 - `git check-ignore -v --no-index .env config/.env.test volumes/source/PG_VERSION artifacts/run.parquet` identified the repository rules for all four paths. `git ls-files --error-unmatch .env.example` confirmed that the template was tracked.
 - In a disposable Git repository, the checks rejected trailing whitespace, a force-staged Parquet file and a sample environment assignment with a non-placeholder value.
+
+On 2026-11-25, the review follow-up verified the Git index syntax against [Git diff 2.43.0](https://git-scm.com/docs/git-diff/2.43.0), [Git revision syntax](https://git-scm.com/docs/gitrevisions) and [Git cat-file](https://git-scm.com/docs/git-cat-file). Local verification used Git 2.43.0 and GNU Make 4.3.
+
+- `sh tests/repository-checks.sh` confirmed that the original check accepted a synthetic non-placeholder staged value when the working tree held the clean template. With the fix, the script passed and confirmed distinct rejection diagnostics for that case, staged trailing whitespace hidden by a clean working tree, and a staged template deletion with an untracked replacement.
+- The script also confirmed that clean fixtures pass, unstaged trailing whitespace fails, and committed trailing whitespace fails when `BASE` points to the clean commit. `make help check BASE=origin/main` passed on the ticket branch.
 
 See the ticket 0.5 pull request for the hosted run and its logs.
 
