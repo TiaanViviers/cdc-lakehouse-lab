@@ -43,6 +43,10 @@ Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in
 | R27 | Does separate request processing isolate preparation from source workload? | Source unavailable/slow scenarios, bounded source writes | Prep continues where inputs allow; commits wait |
 | R28 | Does write-back flow back through one-way CDC without a feedback loop? | Commit test batch, inspect Bronze and source counts | Correct final state, no reverse replication / recursion |
 
+## Phase 1 fixture oracle evidence
+
+[Ticket 1.4](experiments/EXP-003-fixture-oracle.md) validated the offline expected rows, both customer aggregates and mismatch detection for R02, R03 and R13. The three questions remain **OPEN**. Initial snapshot parity, applied changes and cross-table visibility still require observations of the source and downstream systems.
+
 ## Research priorities
 
 Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six remain **OPEN**. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.

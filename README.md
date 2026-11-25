@@ -48,7 +48,7 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 
 ## Developer checks
 
-Run `make help` and `make check` from the repository root with Git and GNU Make. The checks cover changed-line whitespace, ignored and tracked paths, and environment placeholders. See the [development guide](docs/development-guide.md#repository-validation) for recorded results and the [test hierarchy](docs/development-guide.md#test-hierarchy) for planned suites.
+Run `make help` and `make check` from the repository root with Git and GNU Make. The checks cover changed-line whitespace, ignored and tracked paths, and environment placeholders. Run `make test-unit` with CPython 3.12.3 for the offline fixture oracle checks. See the [development guide](docs/development-guide.md#repository-validation) for the reproducible commands and results.
 
 ## GitHub issues
 

@@ -23,3 +23,8 @@ jobs:
         run: make help check
       - name: Test repository checks
         run: sh tests/repository-checks.sh
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12.3'
+      - name: Run offline unit tests
+        run: make test-unit
