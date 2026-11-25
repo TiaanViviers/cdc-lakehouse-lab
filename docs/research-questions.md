@@ -59,6 +59,10 @@ Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [
 
 First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after independent lake access. Later R13–R16; reporting R17–R21 follows Gold readiness; operational R22–R28 follows worker/source foundations. Findings may force a change of stack; write an ADR rather than hiding it.
 
+## Phase 1 S05 source evidence
+
+Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent source session while two disjoint PostgreSQL transactions followed a bounded A-before-B commit schedule. A pre-commit timeout preserved S04, and a fault after A committed left exact A-only state. Reset and replay from fresh S04 reproduced S05. R03 and R13 remain **OPEN** at their downstream acceptance conditions. [S05 experiment](experiments/EXP-016-source-overlap.md)
+
 ## Explicit hypotheses
 
 - **H1:** DuckPipe can consume a logically replicated PG16 source remotely and maintain current-state DuckLake tables.
