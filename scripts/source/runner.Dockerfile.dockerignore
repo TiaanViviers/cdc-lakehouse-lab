@@ -1,0 +1,11 @@
+**
+!scripts/
+!scripts/source/
+!scripts/source/*.py
+!scripts/source/runner.requirements.txt
+!tests/
+!tests/__init__.py
+!tests/fixture_oracle.py
+!tests/fixtures/
+!tests/fixtures/v1/
+!tests/fixtures/v1/expected.json
