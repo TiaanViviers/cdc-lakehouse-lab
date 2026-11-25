@@ -48,8 +48,10 @@ def stage(output):
 
         index = fetch("manifests", INDEX)
         platform = {"os": "linux", "architecture": "amd64"}
-        descriptor = next(item for item in json.loads(index.read_bytes())["manifests"]
-                          if item.get("platform") == platform)
+        descriptors = json.loads(index.read_bytes())["manifests"]
+        descriptor = next((item for item in descriptors if item.get("platform") == platform), None)
+        if descriptor is None:
+            raise ValueError("Registry index has no linux/amd64 manifest")
         manifest = json.loads(fetch("manifests", descriptor["digest"]).read_bytes())
         digests = {item["digest"] for item in [manifest["config"], *manifest["layers"]]}
         with ThreadPoolExecutor(max_workers=5) as pool:

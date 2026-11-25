@@ -11,7 +11,7 @@ mkdir -p artifacts
 python3 scripts/source/stage-image.py artifacts/source.tar
 ```
 
-From the repository root inside the VM, use a fresh Compose project name per disposable run. Record the name and keep it together with the secret for any later startup against the same volume.
+From the repository root inside the VM, use a fresh Compose project name per disposable run. The guard checks the exact volume name before creating the secret or bridge. If the volume exists, choose a different project name for the fresh experiment. Record the project name and keep it together with the secret for the [restart procedure](#verify-a-clean-restart-and-stop).
 
 ```sh
 set -eu
@@ -20,6 +20,14 @@ export COMPOSE_PROJECT_NAME=cdc-source-12
 export COMPOSE_FILE="$PWD/compose.source.yaml"
 source_compose() { labdocker compose -f "$COMPOSE_FILE" --profile source "$@"; }
 source_gate() { python3 scripts/isolation/preflight.py --start-compose "$COMPOSE_FILE"; }
+
+expected_volume="${COMPOSE_PROJECT_NAME}_source-pg"
+local_volumes=$(labdocker volume ls --format '{{.Name}}')
+if printf '%s\n' "$local_volumes" | grep -Fxq -- "$expected_volume"; then
+    printf 'STOP: volume %s already exists. Choose a fresh project name for this experiment.\n' "$expected_volume" >&2
+    exit 1
+fi
+
 image=$(sed -n 's/^    image: //p' "$COMPOSE_FILE")
 labdocker load -i /mnt/source/source.tar
 labdocker image inspect "$image" --format '{{.Os}}/{{.Architecture}} {{.Id}} {{json .RepoDigests}}'
@@ -117,7 +125,7 @@ disk_sample
 
 ## Verify a clean restart and stop
 
-Use a fresh disposable project for the sentinel. After a fast shutdown and container removal, the gate can probe the empty bridge again before recreating the source against its existing volume.
+Use the disposable project already initialized above for the sentinel. Keep the same `COMPOSE_PROJECT_NAME` and secret through the stop and restart. After removing the old container, verify that the volume still exists before running the gate on the empty bridge.
 
 ```sh
 sentinel='7|source-profile-1.2'
@@ -148,4 +156,4 @@ source_compose down
 labdocker volume inspect "$volume" --format 'retained={{.Name}}'
 ```
 
-Use the [1.1 rollback commands](source-runbook.md#dedicated-vm-procedure-for-ticket-12) to remove the two rules in each firewall family, then run `labdocker network rm "$SOURCE_INPUT_ID"`. Keep the project volume and credential for a later start. Provision a fresh bridge and repeat the gate if the previous bridge was removed.
+Use the [1.1 rollback commands](source-runbook.md#dedicated-vm-procedure-for-ticket-12) to remove the two rules in each firewall family, then run `labdocker network rm "$SOURCE_INPUT_ID"`. For a later start, set the recorded project name, confirm `${COMPOSE_PROJECT_NAME}_source-pg` exists with `labdocker volume inspect`, and keep the original secret file. Provision a new bridge using the network commands above, apply its firewall rules, and rerun the gate and health checks.
