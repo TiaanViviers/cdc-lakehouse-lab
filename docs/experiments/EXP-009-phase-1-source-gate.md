@@ -41,9 +41,10 @@ Every keyed checkpoint and report comparison returns zero differences, with item
 | Run ID | Fresh Compose project and volume | Source bridge ID prefix | Integration UTC | Result |
 | --- | --- | --- | --- | --- |
 | `20261125T155531Z-p01-02` | `cdc-source-18-02`, `cdc-source-18-02_source-pg` | `378535cfa21c` | 15:55:57–15:58:11 | Exit 0, 11 independent comparisons, all fault suites passed |
-| `20261125T155701Z-p01-03` | `cdc-source-18-03`, `cdc-source-18-03_source-pg` | `ab5223775a99` | 15:57:27–15:59:32 | Exit 0, 11 independent comparisons, all fault suites and the manual walkthrough passed |
+| `20261125T155701Z-p01-03` | `cdc-source-18-03`, `cdc-source-18-03_source-pg` | `ab5223775a99` | 15:57:27–15:59:32 | Exit 0, 11 independent comparisons, all fault suites and the read-only walkthrough passed |
+| `20261125T160439Z-p01-04` | `cdc-source-18-04`, `cdc-source-18-04_source-pg` | `a47d6195ca37` | 16:05:03–16:07:07 | Exit 0, 11 independent comparisons, all fault suites and the read-only walkthrough passed |
 
-The 11 independent snapshots in each run cover baseline, after schema checks, S00–S06 and both resets. All 22 comparison arrays were empty. Direct comparisons between runs matched all business rows, timestamps, both report rows and receipt keys/digests at corresponding checkpoints. Each source stopped with exit 0 and no OOM. Teardown removed that run's container, volume, bridge and four per-bridge rules. Both guests ended with only the default Docker networks and no containers.
+The 11 independent snapshots in each run cover baseline, after schema checks, S00–S06 and both resets. All 33 comparison arrays were empty. Runs 02 and 03 overlapped in wall-clock time on separate guests. Run 04 started after both had finished and their guests had powered off. Direct comparisons between runs matched all business rows, timestamps, both report rows and receipt keys/digests at corresponding checkpoints. Each source stopped with exit 0 and no OOM. Teardown removed that run's container, volume, bridge and four per-bridge rules. All three guests ended with only the default Docker networks and no containers.
 
 ### Tooling and initial attempt
 
@@ -53,9 +54,9 @@ The local offline check ran under CPython 3.12.3, Git 2.43.0 and GNU Make 4.3. A
 
 ### Isolation and authentication
 
-Both guests used Ubuntu 24.04.5 LTS amd64, kernel 6.8.0-147-generic, QEMU 8.2.2 with KVM, Docker Engine 29.1.3 with the containerd store and cgroup v2, Compose 2.40.3+ds1-0ubuntu1~24.04.1, Bash 5.2.21, and iptables and ip6tables 1.8.10 using the nf_tables frontend. Only loopback and the default Docker bridge were present before local provisioning. Neither address family had a default route. The two successful tests used loaded runner image ID `sha256:4943252833777c83625c654bebe643a0e4a58ff351f22fbc177810da8890b9dc` on linux/amd64 with libpq 17.6.
+The guests used Ubuntu 24.04.5 LTS amd64, kernel 6.8.0-147-generic, QEMU 8.2.2 with KVM, Docker Engine 29.1.3 with the containerd store and cgroup v2, Compose 2.40.3+ds1-0ubuntu1~24.04.1, Bash 5.2.21, and iptables and ip6tables 1.8.10 using the nf_tables frontend. Only loopback and the default Docker bridge were present before local provisioning. Neither address family had a default route. The three successful tests used loaded runner image ID `sha256:4943252833777c83625c654bebe643a0e4a58ff351f22fbc177810da8890b9dc` on linux/amd64 with libpq 17.6.
 
-Before adding the IPv4 and IPv6 rules, both controlled gateway listeners returned their marker and the startup gate refused to create the source container. After the rules, peer Docker DNS and TCP returned the marker in 0.09–0.12 s, and the controlled host IPv4 and IPv6 probes returned `ETIMEDOUT` in 1.58–1.59 s. The LAN, VPN and off-bridge IPv6 probes returned `ENETUNREACH`. Delegated DNS returned `ESERVFAIL` while a direct query to the local DNS fixture returned `172.19.0.2`. The running source was healthy on only the verified internal bridge and the project-labeled volume. Docker reported no published ports.
+Before adding the IPv4 and IPv6 rules, both controlled gateway listeners returned their marker and the startup gate refused to create the source container. After the rules, peer Docker DNS and TCP returned the marker in 0.08–0.12 s, and the controlled host IPv4 and IPv6 probes returned `ETIMEDOUT` in 1.58–1.59 s. The LAN, VPN and off-bridge IPv6 probes returned `ENETUNREACH`. Delegated DNS returned `ESERVFAIL` while a direct query to the local DNS fixture returned `172.19.0.2`. The running source was healthy on only the verified internal bridge and the project-labeled volume. Docker reported no published ports.
 
 TCP clients using both fixture roles returned their expected identity, `source_lab` and a non-null client address over the source bridge. The server logged `method=scram-sha-256` against HBA line 124. Both deliberately incorrect passwords returned `password authentication failed`. The ordered HBA view showed seven entries, all SCRAM with zero parse errors. Loopback used HBA line 115. The live role attempts complement the SQL grant checks run under session authorization.
 
@@ -83,16 +84,16 @@ The unchanged schema harness made 37 negative probes per run. It compared the co
 | S04 atomic commit and rollback | The writer observed all three business rows and the receipt staged. A separate backend saw none and exact S03 while open. It saw all four and exact S04 after commit. For the rollback case it again saw exact S03 and no receipt afterward. In run 02 the ordered S04 committed with XID 767 on PID 1155, and the rollback case aborted XID 776 on PID 1336. |
 | Guarded CLI reset | Omitted `--confirm` returned exit 2. A wrong UUID returned `55000`. Failure after cleanup returned exit 1 and fully restored S04, including its receipt. Both successful integration resets produced exact S00 with no receipts. |
 | S05 normal overlap | In run 02 observer PID 1187 saw writer XIDs 768 and 769 both in progress, then 768 committed and 769 still in progress, then both committed. Exact SQL state moved through S04, A-only and S05. At A-only, item 101 was quantity 4 at T05, payment 303 was absent, and both reports were (2, 1600) and (1, 500). B's commit made payment 303 visible at T05. |
-| S05 barrier timeout and partial commit | With A held until the four-second barrier expired, both transactions aborted and a separate read matched S04. The partial fault left A committed, B aborted and exact A-only rows. Both faults exited 1. The timeout took 4,935 and 4,855 ms from Compose startup, below the 15 s harness deadline. The partial fault took 998 and 910 ms. The independent catalog checks found zero writer backends. Guarded reset and forward replay produced the same S05 again. |
+| S05 barrier timeout and partial commit | With A held until the four-second barrier expired, both transactions aborted and a separate read matched S04. The partial fault left A committed, B aborted and exact A-only rows. Both faults exited 1. The timeout took 4,935, 4,855 and 4,885 ms from Compose startup, below the 15 s harness deadline. The partial fault took 998, 910 and 923 ms. The independent catalog checks found zero writer backends. Guarded reset and forward replay produced the same S05 again. |
 | S04 loss before commit and after commit | Attempts 12 and 18 were killed before and after database commit, respectively. The first left exact S03 and no receipt, then attempt 13 applied S04 once. The second left exact S04 before the application acknowledgement, then attempt 19 used the original receipt and preserved all rows and tuple versions. |
 | S04 overlap and mismatched input | Attempts 24 and 25 initially missed the receipt. In run 02 PostgreSQL showed PID 1644 waiting on PID 1641 at a `transactionid` lock during its claim. The first writer committed. The second resolved the matching receipt without applying writes. Different payload at the same key was rejected with the original state intact. |
 | Automatic retry and explicit unknown | Terminating the writer returned `57P01`. A fresh receipt miss let attempt 30 commit on delivery 2. Terminating both deliveries exhausted attempt 35 and returned exit 1 with `unknown` and exact S03. For attempt 40 the commit succeeded, then the receipt reader's connection to an unused container loopback port failed. It returned exit 1 with `unknown` after one claim. The independent reader still observed exact S04. Attempt 41 recovered from the existing receipt without changing rows or tuple versions. |
 
-Both replay suites ran 41 runner invocations, in 24.339 and 23.236 s. Each produced 21 matching complete snapshots and retained row and receipt tuple IDs. In the ordered S05→S06 run, attempt 907 resolved the receipt from a new reader backend without a write claim. Receipt `xmin` was 767 at S04, S05 and S06 in both freshly initialized clusters.
+The replay suite ran 41 runner invocations per run, in 24.339, 23.236 and 23.476 s. Each produced 21 matching complete snapshots and retained row and receipt tuple IDs. In the ordered S05→S06 run, attempt 907 resolved the receipt from a new reader backend without a write claim. Receipt `xmin` was 767 at S04, S05 and S06 in all three freshly initialized clusters.
 
 ### WAL and resource observations
 
-The effective source configuration was `wal_level=logical`, `max_wal_senders=2`, `max_replication_slots=2`, `max_slot_wal_keep_size=128MB`, `wal_keep_size=0`, `min_wal_size=32MB`, `max_wal_size=128MB`, `checkpoint_timeout=300s` and `archive_mode=off`. PostgreSQL used 16 MiB WAL segments, 20 connections, 128 MiB shared buffers and connection logging to Docker. Both runs had zero publications and zero replication slots at all 14 samples each.
+The effective source configuration was `wal_level=logical`, `max_wal_senders=2`, `max_replication_slots=2`, `max_slot_wal_keep_size=128MB`, `wal_keep_size=0`, `min_wal_size=32MB`, `max_wal_size=128MB`, `checkpoint_timeout=300s` and `archive_mode=off`. PostgreSQL used 16 MiB WAL segments, 20 connections, 128 MiB shared buffers and connection logging to Docker. Each run had zero publications and zero replication slots at all 14 samples.
 
 | Run | Source label / UTC | Insert LSN | Write LSN | Flush LSN |
 | --- | --- | --- | --- | --- |
@@ -102,26 +103,27 @@ The effective source configuration was `wal_level=logical`, `max_wal_senders=2`,
 | 02 | after-S06 / 15:56:26.869975 | `0/19E3F80` | `0/19E3F80` | `0/19E3F80` |
 | 02 | final / 15:58:10.068554 | `0/1A02CD8` | `0/1A02CD8` | `0/1A02CD8` |
 | 03 | final / 15:59:31.901158 | `0/19FEDC8` | `0/19FEDC8` | `0/19FEDC8` |
+| 04 | final / 16:07:06.703001 | `0/19FEDC8` | `0/19FEDC8` | `0/19FEDC8` |
 
-These are publisher observations made around checkpoint reads. The SQL row/receipt comparisons establish fixture behavior. Physical WAL stayed at one segment (16,777,216 logical bytes from `pg_ls_waldir()`, 16,392 allocated KiB from `du`) across both workloads.
+These are publisher observations made around checkpoint reads. The SQL row/receipt comparisons establish fixture behavior. Physical WAL stayed at one segment (16,777,216 logical bytes from `pg_ls_waldir()`, 16,392 allocated KiB from `du`) across all three runs.
 
-| Metric | Approved limit or threshold | Run 02 | Run 03 |
-| --- | --- | ---: | ---: |
-| Source memory peak, cgroup bytes | 805,306,368 (768 MiB) | 134,725,632 | 135,118,848 |
-| Source CPU usage, cumulative | 1 CPU, quota `100000 100000` | 12,644,857 µs, 2 throttled periods | 11,747,590 µs, 4 throttled periods |
-| Source final Docker stats | 128 PID limit, 768 MiB | 6 PIDs, 69.86 MiB, 6.07% CPU, 51.1/55.7 MB block I/O | 6 PIDs, 69.86 MiB, 0.03% CPU, 51.1/55.7 MB block I/O |
-| One-shot runner maximum sampled cgroup peak | 268,435,456 bytes (256 MiB) | 23,719,936 bytes | 23,674,880 bytes |
-| Replay test container maximum sampled peak | 268,435,456 bytes (256 MiB) | 72,376,320 bytes | 72,400,896 bytes |
-| Runner sample CPU usage, cumulative | 0.5 CPU, quota `50000 100000` | 0.315 s max one-shot, 12.263 s replay container | 0.283 s max one-shot, 11.714 s replay container |
-| Allocated PGDATA including WAL, peak | Stop at 524,288 KiB | 47,576 KiB | 47,576 KiB |
-| Allocated WAL, peak | Stop at 262,144 KiB | 16,392 KiB | 16,392 KiB |
-| Free volume filesystem space, minimum | Stop below 1,048,576 KiB | 4,244,640 KiB | 4,244,640 KiB |
+| Metric | Approved limit or threshold | Run 02 | Run 03 | Run 04 |
+| --- | --- | ---: | ---: | ---: |
+| Source memory peak, cgroup bytes | 805,306,368 (768 MiB) | 134,725,632 | 135,118,848 | 135,536,640 |
+| Source CPU usage, cumulative | 1 CPU, quota `100000 100000` | 12,644,857 µs, 2 throttled periods | 11,747,590 µs, 4 throttled periods | 10,806,002 µs, 2 throttled periods |
+| Source final Docker stats | 128 PID limit, 768 MiB | 6 PIDs, 69.86 MiB, 6.07% CPU, 51.1/55.7 MB block I/O | 6 PIDs, 69.86 MiB, 0.03% CPU, 51.1/55.7 MB block I/O | 6 PIDs, 70.09 MiB, 0.02% CPU, 51.3/55.7 MB block I/O |
+| One-shot runner maximum sampled cgroup peak | 268,435,456 bytes (256 MiB) | 23,719,936 bytes | 23,674,880 bytes | 23,732,224 bytes |
+| Replay test container maximum sampled peak | 268,435,456 bytes (256 MiB) | 72,376,320 bytes | 72,400,896 bytes | 72,396,800 bytes |
+| Runner sample CPU usage, cumulative | 0.5 CPU, quota `50000 100000` | 0.315 s max one-shot, 12.263 s replay container | 0.283 s max one-shot, 11.714 s replay container | 0.288 s max one-shot, 11.815 s replay container |
+| Allocated PGDATA including WAL, peak | Stop at 524,288 KiB | 47,576 KiB | 47,576 KiB | 47,576 KiB |
+| Allocated WAL, peak | Stop at 262,144 KiB | 16,392 KiB | 16,392 KiB | 16,392 KiB |
+| Free volume filesystem space, minimum | Stop below 1,048,576 KiB | 4,244,640 KiB | 4,244,640 KiB | 4,244,636 KiB |
 
 Docker inspection and cgroup files confirmed the source memory and CPU limits, 128 PIDs, zero swap, 128 MiB shared memory and the `local` log driver capped at three 5 MB files. The retained S00 runner's Docker inspection showed a 256 MiB memory-plus-swap limit, 0.5 CPU and 32 PIDs. All sampled runner and source cgroups showed zero OOM and OOM kills. PostgreSQL logged a shutdown checkpoint and clean exit from its temporary bootstrap instance. Final teardown of the healthy workload container independently returned exit 0.
 
 ### Read-only walkthrough
 
-Run 03 advanced from the final exact S00 to S04 and ran the documented SQL as the reader over loopback. The query returned `on` for `transaction_read_only` and the following rows. Item 102 was absent. The third reset and independent runner inspection again matched S00.
+Runs 03 and 04 advanced from the final exact S00 to S04 and ran the documented SQL as the reader over loopback. The query returned `on` for `transaction_read_only` and the following rows. Item 102 was absent. The additional reset and independent runner inspection again matched S00 in each run.
 
 ```text
 on
@@ -133,23 +135,24 @@ v1|42|S04|4d2c11bd073069f7a4a9f38ba044d58219fad0c37ab3a2b43b300a97414432f8|856
 
 ## Evidence artifacts
 
-The runbook has the redacted commands. The local staging directory `~/cdc-issue26-vm.FKUuitYV/` retains the console transcripts, VM launcher and three evidence archives. Under `source-gate/` each complete run contains independently queried `S00.json` through `S06.json`, `comparisons.jsonl`, resolved Compose configuration, settings and WAL, sampled cgroups and storage, positive and negative authentication output, and filtered PostgreSQL logs. Per-fault SQL and before/after data are in `schema/`, `sequential/`, `overlap/` and `replay/`. The guest launcher recorded startup/shutdown output and the separate walkthrough capture.
+The runbook has the redacted commands. The local staging directory `~/cdc-issue26-vm.FKUuitYV/` retains the console transcripts, VM launcher and four evidence archives. Under `source-gate/` each complete run contains independently queried `S00.json` through `S06.json`, `comparisons.jsonl`, resolved Compose configuration, settings and WAL, sampled cgroups and storage, positive and negative authentication output, and filtered PostgreSQL logs. Per-fault SQL and before/after data are in `schema/`, `sequential/`, `overlap/` and `replay/`. The guest launcher recorded startup/shutdown output and the separate walkthrough capture.
 
 | Local archive | SHA-256 |
 | --- | --- |
 | `evidence-01.tar.gz` (guest tooling failure) | `6a3ac4e97d502fa7ef64a692938a77ef2f40f13a6cd83a271355bb2f9ea49fa4` |
 | `evidence-02.tar.gz` | `6e1377c55375c207195634cfe15b6cd9d24f34d549821b872265e477b99038d3` |
 | `evidence-03.tar.gz` | `235074cbaa748edc789a8f8c6001552d60c9e53bee16f56f50c30f27dc907a57` |
+| `evidence-04.tar.gz` | `11461af000604b6f3e9fd78d06bc76cab270537ed5b64116402fb03650e26035` |
 
 [Issue #26](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/26) · [Source gate entry point](../../tests/integration/source-gate/run.sh) · [Snapshot SQL](../../tests/integration/source-gate/snapshot.sql) · [Research register](../research-questions.md#phase-1-source-evidence)
 
 ## Interpretation
 
-**Decision. Phase 1 technical source gate met.** Two fresh, independently isolated sources reproduced every required committed checkpoint, fault response and recovery result within the declared limits. The evidence establishes deterministic operational source behavior for fixture v1, seed 42. No material source defect surfaced in the covered cases.
+**Decision. Phase 1 technical source gate met.** Three fresh, independently isolated sources reproduced every required committed checkpoint, fault response and recovery result within the declared limits. The evidence establishes deterministic operational source behavior for fixture v1, seed 42. No material source defect surfaced in the covered cases.
 
 ## Limitations / confounders
 
-- The resource results describe one small fixed workload on an isolated two-vCPU guest. The Docker CPU percentage is a single end-of-run sample. Cgroup CPU usage is cumulative. The Docker log limit and the disk thresholds serve different purposes. The thresholds rely on periodic observations and operator action.
+- The resource results describe one small fixed workload on isolated two-vCPU guests sharing a staging host. The Docker CPU percentage is a single end-of-run sample. Cgroup CPU usage is cumulative. The Docker log limit and the disk thresholds serve different purposes. The thresholds rely on periodic observations and operator action.
 - WAL samples include ordinary server activity. The source has no publication, slot or consumer. A source flush position cannot establish a downstream acknowledgement, retention behavior or replicated visibility.
 - The replay faults target controlled before-commit and post-commit/pre-acknowledgement boundaries. Wire-level interruption during `COMMIT`, prolonged outages, failover and conflicting writes are outside the observed cases.
 - The reset marker includes the database OID, cluster system identifier and enrolled UUID. Keep physical copies of the lab volume outside the reset procedure because copying the volume copies the marker.
