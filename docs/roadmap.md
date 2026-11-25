@@ -5,7 +5,7 @@ This is a **dependency order**, not evidence that any component works. The full 
 | Phase | Title | Implementation slice | Exit proof |
 | --- | --- | --- | --- |
 | **0** | Research / repository foundation | Docs, ADRs, compatibility matrix, local runtime conventions | Architecture and version assumptions reviewed |
-| **1** | Operational source simulator | PG16 + deterministic Python generator + inspection | Reproducible committed events / expected row states |
+| **1** | Operational source simulator | Isolated PG16, bounded WAL settings, deterministic Python generator and SQL inspection | Exact S00–S06 rows and aggregates, transaction and retry evidence, source inspection |
 | **2** | DuckPipe CDC | Remote logical source, CDC worker, initial snapshots / WAL slots | Snapshot and ongoing CDC row-level correctness |
 | **3** | DuckLake catalog / object storage | PG metadata, S3-compatible Parquet, independent DuckDB reader | Same catalog/files yield correct independent queries |
 | **4** | Windmill transformation engine | Server, queue PG, workers, DuckDB, Flows/Pipelines, Silver/Gold | Complete Bronze → Gold transformation with dependencies |
@@ -26,11 +26,11 @@ This is a **dependency order**, not evidence that any component works. The full 
 
 Operational Phase 6 requires the source (phase 1), durable worker orchestration (phase 4), and optionally a Gold snapshot (phase 4); it does **not** require a reporting SQL endpoint, despite following Phase 5 in the preferred learning order. Phase 5 requires the lake and Gold tables. Observability incrementally covers both branches.
 
-## Candidate phase-specific work (NOT published tickets)
+## Phase records and later research areas
 
-- **Phase 0:** verify upstream extension/edition/image matrix; Docker security conventions; agent workflow and ticket registry.
-- **Phase 1:** synthetic related schema, deterministic inserts/updates/deletes, independent expectation tests, PostgreSQL inspection.
-- **Phase 2:** source WAL configuration, remote DuckPipe, snapshot parity, LSN/slot observation, stop/restart scenario.
+- **Phase 0:** see the [closeout and approval gate](phase-0-closeout.md).
+- **Phase 1:** see the [proposed source simulator backlog](../backlog/phase-1.md).
+- **Phase 2:** remote DuckPipe, publication and slots on the Phase 1 source baseline, snapshot parity, LSN/slot observation and stop/restart scenario.
 - **Phase 3:** local S3-compatible bucket, catalog metadata, independent DuckDB, Parquet objects/snapshots, multi-writer unknowns.
 - **Phase 4:** Windmill runtime + one worker, read Bronze, Silver SQL, Gold Reporting/ML, Pipelines dependency experiments, readiness checks.
 - **Phase 5:** separate SQL-serving container/PG extension, remote catalog access, S3 Gold read, read-only roles, concurrent query benchmark, restart.

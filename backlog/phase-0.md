@@ -1,6 +1,6 @@
-# Proposed Phase 0 tickets — review before publication
+# Published Phase 0 tickets — Foundation
 
-> **Status: draft proposal only.** These are *not* GitHub issues. Only Phase 0 tickets are proposed; future phases will be planned from experiment results. See [roadmap](../docs/roadmap.md), [project workflow](../docs/project-management.md), [numbering](../docs/issue-conventions.md) and [registry](tickets.yaml).
+See the [registry](tickets.yaml) for GitHub issue numbers and the [Phase 0 closeout](../docs/phase-0-closeout.md) for acceptance evidence and handover status. This file preserves the original published scope and criteria.
 
 **Milestone:** [Phase 0 — Foundation](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/1)  
 **Project board:** [CDC Lakehouse Lab](https://github.com/users/TiaanViviers/projects/3)  
@@ -166,7 +166,7 @@ The initial **Ready** candidates are `0.1` and `0.3`. Other tickets should remai
 
 ---
 
-## Review and publication procedure
+## Original review and publication procedure
 
 1. Review this proposal and `backlog/tickets.yaml` through a GitHub pull request.
 2. Refine/split/reorder issues if their requirements are too broad.
