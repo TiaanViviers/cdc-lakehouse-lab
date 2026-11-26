@@ -2,7 +2,7 @@
 
 A reproducible data-engineering research environment exploring PostgreSQL WAL-based change data capture, DuckPipe, DuckLake, DuckDB, Windmill, SQL query serving, asynchronous operations and end-to-end observability.
 
-> **Status (2026-11-26).** The Phase 1 source gate passed. The pinned Phase 2 remote DuckPipe path demonstrated exact local DuckLake convergence at held checkpoints and bounded same-slot recovery. M2 remains unmet. Retained WAL grew during sparse-table activity, and three controlled COPY-overlap runs missed the same committed insert by their deadlines. See the [Phase 1 closeout](docs/phase-1-closeout.md), [Phase 2 evidence](docs/experiments/EXP-020-phase-2-cdc-gate.md) and [offline CDC gate](docs/cdc-gate.md).
+> **Status (2026-11-26).** The Phase 1 source gate passed. The pinned Phase 2 remote DuckPipe path demonstrated exact local DuckLake convergence at held checkpoints and bounded same-slot recovery. M2 remains unmet. Retained WAL grew during sparse-table activity, and three controlled COPY-overlap runs missed the same committed insert by their deadlines. See the [Phase 1 closeout](docs/phase-1-closeout.md), [Phase 2 evidence](docs/experiments/EXP-020-phase-2-cdc-gate.md) and [Phase 2 verification runbook](docs/cdc-gate.md).
 
 ## What we are building
 

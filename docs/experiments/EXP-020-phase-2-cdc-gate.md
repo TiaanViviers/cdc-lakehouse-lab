@@ -31,7 +31,7 @@ Commit-atomic Bronze visibility, an exact crash before pending work becomes dura
 
 ## Paired integrated result
 
-Both projects ran in `guest-24.qcow2` from `bea68d901cf18f2c740570250a0b4fda887bc98f` on merged base `2cc8f90829ae1e45992269c05d406eec178e2643`. The read-only checkout archive SHA-256 was `8f4fadd0e7c19c22ed5426a4ecbebdeb8ebe2bc29de24ac84fe025ff892646e0`. The Linux 6.8.0-147 guest ran Docker Engine 29.1.3 with the containerd store, Compose 2.40.3, cgroup v2 and Python 3.12.3. Both per-project experiments returned 0 with cleanup 0. After both teardowns, the pair verifier returned 1 with `M2 unmet`, surfaced by GNU Make as exit 2.
+Both projects ran in `guest-24.qcow2` from `bea68d901cf18f2c740570250a0b4fda887bc98f` on merged base `2cc8f90829ae1e45992269c05d406eec178e2643`. The read-only checkout archive SHA-256 was `8f4fadd0e7c19c22ed5426a4ecbebdeb8ebe2bc29de24ac84fe025ff892646e0`. The Linux 6.8.0-147 guest ran Docker Engine 29.1.3 with the containerd store, Compose 2.40.3, cgroup v2 and Python 3.12.3. Both per-project experiments returned 0 with cleanup 0. After both teardowns, that revision’s verifier printed `M2 unmet` and returned 1, which GNU Make surfaced as exit 2. These are historical outputs. The review follow-up below gives the current command contract.
 
 | Run order | Guest run ID | Exact source and Bronze | SQL and runtime teardown |
 | --- | --- | --- | --- |
@@ -95,6 +95,10 @@ The catalog reports format 0.4 and stores the local files under its verified nam
 **M2 is unmet.** With the consumer active, the unchanged customer position held back publisher feedback as WAL accumulated over three controlled checkpoint epochs. Noncustomer table apply began from prior measured positions and crossed each epoch's bracket. Returned source and Bronze rows still matched all independent expectations. The tested short outage remained inside retained WAL. Three additional COPY-overlap trials independently missed the committed S01 insert at the deadline, making concurrent onboarding a second blocker. The separate loss control shows what happens after exhausting that headroom: the old slot cannot resume and a fresh snapshot is required.
 
 The required correction is a reviewed connector fix or operating strategy that keeps feedback and retention bounded during sparse activity while preserving committed effects. Verify it on a pinned build with the same paired gate, a measured sparse-workload budget, alert and stop thresholds, same-slot interruption tests and a documented resnapshot procedure for lost WAL. Confirm no feedback step advances past a committed effect that can disappear across a restart. Investigate the missed COPY-overlap insert with source transaction and change LSN attribution, the COPY snapshot and consistent point, and the worker’s registration and routing decisions. Repeated controlled COPY overlap must converge exactly without a reseed. A change of connector or guarantees requires separate review. Candidate mitigations remain unverified.
+
+### Review follow-up on the executable contract
+
+The original verifier could emit a positive M2 verdict after the two held-checkpoint runs passed, even with the separately reproduced COPY-overlap failure. The command now emits only a paired subgate result and always requires a full M2 review. The [runbook](../cdc-gate.md#review-the-full-m2-decision) requires explicit positive COPY evidence alongside the pair and the other mandatory operational and correctness outcomes. The recorded M2 decision above includes both blockers. Historical guest exports retain their original output. [Independent PR review](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/57#pullrequestreview-6079173591)
 
 ## Consolidated Phase 2 observations
 

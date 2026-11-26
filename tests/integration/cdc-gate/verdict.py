@@ -1,4 +1,4 @@
-"""Compare both runs' independently verified checkpoint rows and gate outcomes."""
+"""Verify the paired CDC subgate from two held-checkpoint runs."""
 
 import hashlib
 import json
@@ -53,11 +53,13 @@ def verdict(pair):
 
     retention = {run.name: result["retention"] for run, result in zip(runs, results, strict=True)}
     passed = {"progress_observed": True, "persistent_growth": False}
-    met = all(result == passed for result in retention.values())
-    summary = dict(verdict="M2 met" if met else "M2 unmet", hashes=observed[0], retention=retention)
+    pair_passed = all(result == passed for result in retention.values())
+    summary = dict(scope="paired-subgate", verdict="pass" if pair_passed else "fail",
+                   requires_m2_review=True, hashes=observed[0], retention=retention)
     (pair / "verdict.json").write_text(json.dumps(summary, indent=2) + "\n")
-    print(summary["verdict"])
-    return 0 if met else 1
+    print(f"Paired CDC subgate: {summary['verdict']}")
+    print("Full M2 decision requires review of all mandatory evidence, including controlled COPY overlap.")
+    return 0 if pair_passed else 1
 
 
 if __name__ == "__main__":

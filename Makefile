@@ -13,7 +13,7 @@ help:
 		'make check-local-files  Check ignore rules, indexed paths and the indexed env example' \
 		'make test-unit          Run the offline unit tests' \
 		'make test-integration   Run the verified disposable source gate' \
-		'make test-cdc MEDIA=...  Run the two-project CDC gate in the disconnected guest'
+		'make test-cdc MEDIA=...  Run the paired CDC subgate in the disconnected guest'
 
 check: check-whitespace check-local-files
 

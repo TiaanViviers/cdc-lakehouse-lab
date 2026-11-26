@@ -1,6 +1,6 @@
 # Run the Phase 2 CDC gate
 
-[Ticket 2.9 (#46)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) tests the pinned PostgreSQL 16.16 publisher and DuckPipe consumer with the local DuckLake sink. The gate uses the synthetic v1/42 fixture and independently checks both databases. See the [verdict and observations](experiments/EXP-020-phase-2-cdc-gate.md).
+[Ticket 2.9 (#46)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) tests the pinned PostgreSQL 16.16 publisher and DuckPipe consumer with the local DuckLake sink. The gate uses the synthetic v1/42 fixture and independently checks both databases. See the [reviewed M2 decision and observations](experiments/EXP-020-phase-2-cdc-gate.md).
 
 ## Schedule and stage
 
@@ -25,7 +25,9 @@ Each project has a 480-second limit and a 60-second target parity limit per chec
 
 ## Read the results
 
-Start in `artifacts/EXP-020/pair-*/`. A completed pair writes `verdict.json` with the canonical hashes, both retention results and the M2 verdict. A recorded `M2 unmet` returns a failing Make status. Preserve the separate controlled COPY result alongside the pair because the paired initial copy uses held source writes. A startup, runtime, parity or teardown error also returns failure and may stop before generating the pair verdict. Use the stage and project in `run.txt` to distinguish an incomplete run from a reproduced product failure.
+Start in `artifacts/EXP-020/pair-*/`. A completed pair writes `verdict.json` with `scope: paired-subgate`, a `pass` or `fail` result, canonical hashes, both retention results and `requires_m2_review: true`. Exit zero is a pass for the paired subgate. A negative retention result returns a failing Make status. A startup, runtime, parity or teardown error can stop before the summary is written. Use the stage and project in `run.txt` to distinguish an incomplete run from a reproduced product failure. The paired initial copy holds source writes.
+
+The full M2 decision requires an explicit review of the paired and auxiliary results. Follow the [review criteria](#review-the-full-m2-decision) with every paired result.
 
 - **Keyed correctness.** Each `S00`–`S05` directory contains full normalized source and Bronze rows, both report rows and independent oracle comparisons. The pair verifier hashes the canonical row payloads. Item 102 must be absent on both sides after S03. Rollback checks include exact S03 at each sampled read and at every retained version in range. S05 includes the both-open and A-committed/B-open barriers and the independently checked terminal state.
 - **Recovery and authentication.** Follow S02 durability before the restarted worker runs, the inactive slot during the offline S03 delete, exact S03 after catch-up, and the preserved S04 catalog and rows after replacing the consumer. Check the container changed and the cluster, volume, group and mapping identities persisted. Both fresh TCP peers require SCRAM and a specific rejection for wrong passwords. The source rejects the scoped publisher in the wrong database. After replacement the consumer cannot reach either positive guest gateway listener.
@@ -33,6 +35,16 @@ Start in `artifacts/EXP-020/pair-*/`. A completed pair writes `verdict.json` wit
 - **Local sink.** Compare `before-replacement-catalog.json` and the recreation event to the pre-worker row read. `inline-catalog.json` documents ordinary writes. `file-catalog.json` records the scoped quiescent order-items flush, checked physical size, Parquet magic and digests for data and delete references. The catalog can retain history alongside the live rows. The gate also checks exact target rows with the worker stopped. Use the separate consumer acceptance to reproduce physical-file persistence across replacement.
 
 Run `make help check BASE=origin/main`, `make test-unit`, and `sh tests/repository-checks.sh`. Then run the existing [source-only `make test-integration`](source-gate.md) on its own fresh source project. Exercise the associated fault and scope controls using their existing commands on separate fresh overlays. Review the logged observations since some exploratory controls can return success while recording an inconclusive window. [Consumer profile](cdc-consumer.md#reproduce-exp-015) · [Baseline and COPY hold](../tests/integration/cdc-baseline/README.md) · [Abrupt and retention-loss trials](../tests/integration/cdc-recovery/README.md) · [Rollback and ordered overlap](../tests/integration/cdc-visibility/README.md)
+
+## Review the full M2 decision
+
+Record the authoritative M2 decision in the experiment report after reviewing all mandatory evidence against [issue #46 and the approved gate](../backlog/phase-2.md#29-verify-the-complete-phase-2-cdc-gate). Record the tested revision and selected source, consumer and runner identities for the paired and auxiliary runs. Use the same tested configuration and pins for positive acceptance.
+
+1. Require a passing paired subgate with the exact S00–S05 rows and hashes, rollback exclusion, deleted-key absence, same-slot catch-up, continued apply after replacement, and verified teardown from both fresh projects. Inspect the measured retention and resource bounds alongside the keyed results.
+2. Require a separate positive [controlled COPY-overlap trial](../tests/integration/cdc-baseline/README.md#inspect). Match the same blocked COPY backend and temporary slot before and after the independently verified S01 source commit. After release, require exact source and target S01 within the deadline, the full item 102 update and subsequent delete back to exact S00, and clean teardown. A failed, missing or unwitnessed COPY result leaves M2 unmet.
+3. Review the source-only checks, scoped publisher lifecycle, authentication and isolation, consumer catalog and file persistence, and the separate abrupt interruption, WAL-loss and visibility trials. Use each at its documented boundary. An expected lost-slot rejection and clean resnapshot demonstrate the loss boundary. An unobserved exploratory crash or visibility window limits the claims from that trial. Missing, failed or inconclusive evidence for any mandatory outcome leaves M2 unmet.
+
+A positive result across the subgate and auxiliary checks is evidence for the review. Only the explicit full decision records M2 as met.
 
 ## Read-only operator walkthrough
 
