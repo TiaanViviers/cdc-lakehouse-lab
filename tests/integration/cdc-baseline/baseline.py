@@ -4,6 +4,7 @@ from dataclasses import asdict, replace
 from datetime import UTC, datetime
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import time
@@ -16,7 +17,7 @@ from scripts.cdc.parity import (
 from scripts.cdc.parity.psql import SOURCE_TABLES, read_fixture, read_projections
 from scripts.cdc.wal.observe import DOCKER, Observer, Source
 from scripts.isolation.preflight import check_firewall
-from tests.fixture_oracle import PRIMARY_KEYS, load_expectations
+from tests.fixture_oracle import PRIMARY_KEYS, compare_checkpoint, load_expectations
 
 
 TABLES = ("customers", "orders", "payments", "order_items")
@@ -56,7 +57,7 @@ def require(condition, message):
 def command(args, *, data=None, timeout=10):
     # Errors can include conninfo. Report the safe stage name at the call site.
     proc = subprocess.run(args, input=data, text=True, stdout=subprocess.PIPE,
-                          stderr=subprocess.DEVNULL, timeout=timeout, check=False)
+                          stderr=subprocess.PIPE, timeout=timeout, check=False)
     return proc
 
 
@@ -92,13 +93,17 @@ class Experiment:
             proc = command(args, data=data, timeout=timeout)
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"{label} timed out") from None
-        require(proc.returncode == 0, f"{label} failed (exit {proc.returncode})")
+        if proc.returncode:
+            states = re.findall(r"(?:ERROR|FATAL): +([0-9A-Z]{5}):", proc.stderr)
+            self.event("error", "command_failed", stage=label, exit_code=proc.returncode,
+                       sqlstates=states)
+            raise RuntimeError(f"{label} failed (exit {proc.returncode})")
         require(len(proc.stdout) <= 262144, f"{label} output exceeded capture bound")
         return proc.stdout
 
     def sql(self, label, sql, *, target=False, variables=()):
         prefix = self.target if target else self.source
-        return self.checked(label, (*prefix, "-At", *variables, "-f", "-"), data=sql).strip()
+        return self.checked(label, (*prefix, "-At", "-v", "VERBOSITY=verbose", *variables, "-f", "-"), data=sql).strip()
 
     def save(self, name, value):
         (self.evidence / name).write_text(json.dumps(value, indent=2) + "\n")
@@ -225,6 +230,16 @@ class Experiment:
         require(not slot or slot["wal_status"] in ("reserved", "extended"), "publisher WAL unavailable")
         return slot
 
+    def feedback_tail(self):
+        deadline = time.monotonic() + 10
+        while True:
+            last = time.monotonic() >= deadline
+            self.wal("feedback-tail")
+            self.status("feedback-tail")
+            if last:
+                return
+            time.sleep(min(POLL, max(0, deadline - time.monotonic())))
+
     def status(self, label):
         out = self.checked("connector observation", ("bash", "scripts/cdc/consumer/status.sh",
                            self.consumer_id, self.group, self.run_id, label,
@@ -262,6 +277,7 @@ class Experiment:
         """).split("|")
         require(row[:11] == [self.publication, self.publisher, self.slot, "pgoutput", "logical",
                             "source_lab", "f", "f", "0", "1", "1"], "created group publisher inventory")
+        self.publication_oid = row[11]
         self.event("S00", "empty_publication_and_persistent_slot", creation=row)
 
     def register(self, table):
@@ -321,9 +337,12 @@ class Experiment:
         result = verify_checkpoint(self.trial, step, self.read_source, read_target,
                                    target_timeout=DEADLINE, interval=POLL)
         write_evidence(self.evidence / label, result)
+        snapshot = asdict(result.target.snapshot) if result.target.snapshot else None
+        if snapshot:
+            del snapshot["rows"]
         self.event(label, "exact_target" if result.passed else "parity_failed",
                    source=result.source.status, target=result.target.status, attempts=result.target_attempts,
-                   snapshot_boundary=asdict(result.target.snapshot) if result.target.snapshot else None)
+                   snapshot_boundary=snapshot)
         self.wal(label)
         self.status(label)
         self.resources(label)
@@ -357,6 +376,13 @@ class Experiment:
         self.controller("reduce", self.oid)
         self.controller("permission-probe")
         self.controller("inventory")
+        flags = self.sql("publication identity and DML flags", """
+            SELECT oid,pubname,pg_get_userbyid(pubowner),pubinsert,pubupdate,pubdelete,pubtruncate
+            FROM pg_publication;
+        """)
+        require(flags == f"{self.publication_oid}|{self.publication}|{self.publisher}|t|t|t|t",
+                "publication identity or operation flags changed")
+        self.event("inventory", "publication_dml_flags", inventory=flags)
         expected = "\n".join(f"fixture|{table}|f|{len(COLUMNS[table])}" for table in sorted(TABLES))
         actual = self.sql("publication membership and column coverage", """
             SELECT t.schemaname, t.tablename, t.rowfilter IS NOT NULL, cardinality(t.attnames)
@@ -421,6 +447,54 @@ class Experiment:
         self.inventory()
         self.checkpoint("copy-window", "S01" if before else "S00")
         require(before, "copy-window inconclusive: deterministic COPY wait was not observed")
+        self.item_102_dml()
+
+    def item_102_dml(self):
+        # The published S02 updates item 101. Exercise literal item 102 DML
+        # only after the separate copy-window trial has passed exact S01.
+        expectations = load_expectations()
+        expected = expectations["S01"]
+        row = next(row for row in expected["order_items"] if row["item_id"] == 102)
+        row.update(quantity=4, updated_at="2026-01-01T00:07:00Z")
+        expected["report"][0]["item_total_cents"] = 2600
+        for label, statement, result_rows in (
+            ("item-102-update", """
+                UPDATE fixture.order_items SET quantity=4, updated_at='2026-01-01T00:07:00Z'
+                WHERE item_id=102 RETURNING item_id;
+            """, expected),
+            ("item-102-delete", """
+                DELETE FROM fixture.order_items WHERE item_id=102 RETURNING item_id;
+            """, expectations["S00"]),
+        ):
+            self.wal(label)
+            self.status(label)
+            self.event(label, "writer_started")
+            result = self.sql(label, "BEGIN; SET LOCAL ROLE source_fixture_writer;" + statement + "COMMIT;")
+            require(result == "102", f"{label} must commit one matching key")
+            self.event(label, "commit_acknowledged")
+            source = fixture_rows(self.read_source(8).rows)
+            source_diff = compare_checkpoint(result_rows, source)
+            self.save(f"{label}.source.json", dict(rows=source, diffs=source_diff))
+            require(not source_diff, f"{label} source differs from its expected state")
+            deadline = time.monotonic() + DEADLINE
+            while (remaining := deadline - time.monotonic()) > 0:
+                self.event(label, "target_read_started")
+                capture = read_fixture(self.target, TARGET, min(remaining, 8))
+                target = fixture_rows(capture.rows)
+                diffs = compare_checkpoint(result_rows, target)
+                self.event(label, "target_read_finished", differences=diffs)
+                if not diffs and time.monotonic() < deadline:
+                    self.save(f"{label}.target.json", dict(rows=target, diffs=diffs,
+                              reader_semantics=capture.reader_semantics))
+                    self.event(label, "exact_target")
+                    self.wal(label)
+                    self.status(label)
+                    self.resources(label)
+                    break
+                self.save(f"{label}.target-last-mismatch.json", dict(rows=target, diffs=diffs))
+                time.sleep(min(POLL, max(0, deadline - time.monotonic())))
+            else:
+                raise RuntimeError(f"{label} timed out")
 
     def copy_probe(self):
         row = self.sql("snapshot COPY boundary", """
@@ -458,6 +532,30 @@ class Experiment:
             raise RuntimeError("advisory holder boundary was not observed")
         return None
 
+    def remove_source_objects(self):
+        self.group_sql("quiesce group", """
+            SELECT duckpipe.disable_group(:'group');
+            SELECT duckpipe.stop_worker(:'group');
+        """)
+        self.controller("disable-login", self.oid)
+        status = self.status("quiesced")
+        require(not status["worker_pids"] and not status["group"]["enabled"], "connector still running")
+        deadline = time.monotonic() + 5
+        while True:
+            slot = self.wal("quiesced")
+            if not slot["active"]:
+                break
+            require(time.monotonic() < deadline, "slot did not become inactive")
+            time.sleep(POLL)
+        self.controller("drop-slot", slot["restart_lsn"], slot["confirmed_flush_lsn"])
+        self.controller("drop-publication", self.publication_oid)
+        self.controller("restore-identity", self.oid)
+        self.controller("drop-role", self.oid)
+        self.members = ()
+        self.observer.source = replace(self.observer.source, slot="", publication="", members=())
+        self.wal("removed")
+        self.event("removed", "publisher_objects_removed")
+
     def run(self):
         self.setup()
         self.create()
@@ -482,9 +580,12 @@ class Experiment:
             self.fixture("S04", "S04")
             self.checkpoint("S04", "S04")
 
+        self.feedback_tail()
         self.save("catalog.json", catalog(self.consumer_id))
         self.wal("final")
         self.status("final")
+        self.resources("final")
+        self.remove_source_objects()
         self.event("final", "experiment_passed")
 
 
