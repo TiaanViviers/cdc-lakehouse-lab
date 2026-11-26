@@ -25,7 +25,7 @@ Each project has a 480-second limit and a 60-second target parity limit per chec
 
 ## Read the results
 
-Start in `artifacts/EXP-020/pair-*/`. A completed pair writes `verdict.json` with the canonical hashes, both retention results and the M2 verdict. A recorded `M2 unmet` returns a failing Make status. A startup, runtime, parity or teardown error also returns failure and may stop before generating the pair verdict. Use the stage and project in `run.txt` to distinguish an incomplete run from a reproduced product failure.
+Start in `artifacts/EXP-020/pair-*/`. A completed pair writes `verdict.json` with the canonical hashes, both retention results and the M2 verdict. A recorded `M2 unmet` returns a failing Make status. Preserve the separate controlled COPY result alongside the pair because the paired initial copy uses held source writes. A startup, runtime, parity or teardown error also returns failure and may stop before generating the pair verdict. Use the stage and project in `run.txt` to distinguish an incomplete run from a reproduced product failure.
 
 - **Keyed correctness.** Each `S00`–`S05` directory contains full normalized source and Bronze rows, both report rows and independent oracle comparisons. The pair verifier hashes the canonical row payloads. Item 102 must be absent on both sides after S03. Rollback checks include exact S03 at each sampled read and at every retained version in range. S05 includes the both-open and A-committed/B-open barriers and the independently checked terminal state.
 - **Recovery and authentication.** Follow S02 durability before the restarted worker runs, the inactive slot during the offline S03 delete, exact S03 after catch-up, and the preserved S04 catalog and rows after replacing the consumer. Check the container changed and the cluster, volume, group and mapping identities persisted. Both fresh TCP peers require SCRAM and a specific rejection for wrong passwords. The source rejects the scoped publisher in the wrong database. After replacement the consumer cannot reach either positive guest gateway listener.
@@ -36,7 +36,7 @@ Run `make help check BASE=origin/main`, `make test-unit`, and `sh tests/reposito
 
 ## Read-only operator walkthrough
 
-For a completed run, open `walkthrough.json` and find `read-only-S04` in `timeline.jsonl`. The capture runs after independently verified S04 and before consumer replacement, with later writes held. For live inspection use the IDs, group, slot and publication from the project's `runtime.json` in the isolated guest, with the source held at the same checkpoint.
+For a completed run, open `walkthrough.json` and find `read-only-S04` in `timeline.jsonl`. The capture runs after independently verified S04 and before consumer replacement, with later writes held. For live inspection use the IDs, group, slot and publication from the project's `runtime.json` in the isolated guest, with the source held at the same checkpoint. Set `run_id` to the run directory name.
 
 1. Run the [walkthrough SQL](../tests/integration/cdc-gate/walkthrough.sql) against the publisher. It should show read-only mode, values for order 30, item 301 and payment 302, and absence of item 102. Use the S04 runner record to locate the committed XID.
 
@@ -50,9 +50,19 @@ For a completed run, open `walkthrough.json` and find `read-only-S04` in `timeli
    ' < tests/integration/cdc-gate/walkthrough.sql
    ```
 
-2. Inspect `pg_publication_tables`, then join `pg_replication_slots.active_pid` to `pg_stat_replication.pid` for the exact slot in a read-only publisher transaction. Read the plugin, database, restart and confirmed LSNs, WAL status, headroom and sender position. Compare them with the publisher timeline fields. The source acknowledgement and these WAL observations have no attributed COMMIT or END LSN.
+2. Run the publisher observer. It selects the exact publication members from `pg_publication_tables` and joins the tracked slot’s `active_pid` to the sender in `pg_stat_replication`. Use the plugin, database, restart and confirmed LSNs, WAL status, headroom and sender position from its read-only JSON. The source acknowledgement and these WAL observations have no attributed COMMIT or END LSN.
+
+   ```bash
+   python3 -m scripts.cdc.wal.observe \
+       --project "$project" --container "$source_id" --bridge "$bridge_id" \
+       --system-identifier "$source_system" --run-id "$run_id" \
+       --phase gate --checkpoint read-only-S04 --slot "$slot" --publication "$publication" \
+       --member fixture.customers --member fixture.orders \
+       --member fixture.order_items --member fixture.payments
+   ```
+
 3. On the consumer run `bash scripts/cdc/consumer/status.sh "$consumer_id" "$group" "$run_id" read-only-S04 0`. Match the group to the publication and slot, then inspect the worker PID, four table states, snapshot and applied positions, and queues. The consumer worker and the publisher sender run on different servers.
-4. Run the same keyed SQL on the actual target and compare it to the publisher. Supply the run directory name as `run_id` in the status command.
+4. Run the same keyed SQL on the actual target and compare it to the publisher.
 
    ```bash
    bash scripts/cdc/consumer/psql.sh "$consumer_id" -v schema=bronze \

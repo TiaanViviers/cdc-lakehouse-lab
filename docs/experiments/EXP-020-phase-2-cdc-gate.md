@@ -1,7 +1,7 @@
 # EXP-020 — Verify the complete Phase 2 CDC gate
 
 - **Date** 2026-11-26 UTC
-- **Verdict** M2 unmet. Sustained sparse-table WAL growth was reproduced while exact target reads continued.
+- **Verdict** M2 unmet. Sustained sparse-table WAL growth was reproduced while exact held checkpoints continued. Three separate COPY-overlap runs missed the same committed insert at their deadlines.
 - **Ticket** [2.9 / #46](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46)
 - **Research questions** R01–R06, R08, R09, R13, R16
 - **Operator** Codex
@@ -81,7 +81,7 @@ In both runs the sender remained active and all three updated mappings advanced 
 
 The publisher retained the 1-CPU quota. Largest sampled cumulative CPU usage was 12.49 and 12.84 seconds per sampled cgroup incarnation, with 0.004 and 0.009 seconds throttled.
 The consumer retained the 0.75-CPU quota. Largest sampled cumulative CPU usage was 14.04 and 14.21 seconds per sampled cgroup incarnation, with 2.181 and 2.628 seconds throttled.
-The database cgroups retained their 128-PID limit and zero swap. The runner retained its 0.5-CPU and zero-swap limits. All sampled OOM counters were zero.
+Both consumers reported query routing off, one DuckDB thread, a `96MB` DuckDB memory setting and a `48MiB` temporary directory bound. The database cgroups retained their 128-PID limit and zero swap. The runner retained its 0.5-CPU and zero-swap limits. All sampled OOM counters were zero.
 
 ### Local catalog and physical representation
 
@@ -92,9 +92,9 @@ The catalog reports format 0.4 and stores the local files under its verified nam
 
 ## Decision
 
-**M2 is unmet.** With the consumer active, the unchanged customer position held back publisher feedback as WAL accumulated over three controlled checkpoint epochs. Noncustomer table apply began from prior measured positions and crossed each epoch's bracket. Returned source and Bronze rows still matched all independent expectations. The tested short outage remained inside retained WAL. The separate loss control shows what happens after exhausting that headroom: the old slot cannot resume and a fresh snapshot is required.
+**M2 is unmet.** With the consumer active, the unchanged customer position held back publisher feedback as WAL accumulated over three controlled checkpoint epochs. Noncustomer table apply began from prior measured positions and crossed each epoch's bracket. Returned source and Bronze rows still matched all independent expectations. The tested short outage remained inside retained WAL. Three additional COPY-overlap trials independently missed the committed S01 insert at the deadline, making concurrent onboarding a second blocker. The separate loss control shows what happens after exhausting that headroom: the old slot cannot resume and a fresh snapshot is required.
 
-The required correction is a reviewed connector fix or operating strategy that keeps feedback and retention bounded during sparse activity while preserving committed effects. Verify it on a pinned build with the same paired gate, a measured sparse-workload budget, alert and stop thresholds, same-slot interruption tests and a documented resnapshot procedure for lost WAL. Confirm no feedback step advances past a committed effect that can disappear across a restart. A connector-wide change in technology or guarantees requires separate review. No mitigation was validated in EXP-020.
+The required correction is a reviewed connector fix or operating strategy that keeps feedback and retention bounded during sparse activity while preserving committed effects. Verify it on a pinned build with the same paired gate, a measured sparse-workload budget, alert and stop thresholds, same-slot interruption tests and a documented resnapshot procedure for lost WAL. Confirm no feedback step advances past a committed effect that can disappear across a restart. Investigate the missed COPY-overlap insert with source transaction and change LSN attribution, the COPY snapshot and consistent point, and the worker’s registration and routing decisions. Repeated controlled COPY overlap must converge exactly without a reseed. A change of connector or guarantees requires separate review. Candidate mitigations remain unverified.
 
 ## Consolidated Phase 2 observations
 
@@ -151,8 +151,39 @@ The auxiliary experiments use the same selected artifacts and separate fresh, sc
 
 - **Abrupt consumer interruption.** `guest-05.qcow2`, run `20261126T134911Z-r20261126t134911z0949`, at `6008df4758217403826051ae2ead70c360cd54cf`. The sparse-table touch advanced publisher feedback to the sampled S02 upper bracket `0/19C05F8`. SIGKILL returned 137 without OOM. Independent Bronze read exact S03 before worker start, demonstrating persisted S02/S03 effects. The publisher logged same-slot restart at `0/19C05F8`, and exact recovered S04 and continued S05 followed. The buffered-but-not-durable crash window remained inconclusive. Experiment and cleanup were 0. [EXP-018 method](EXP-018-cdc-recovery.md#sparse-activity-feedback-and-abrupt-interruption)
 
+- **Retention loss.** `guest-25.qcow2`, run `20261126T140443Z-r20261126t140443zae05`, at `bea68d901cf18f2c740570250a0b4fda887bc98f`. The eighth switch left 124,093,208 retained address bytes, 16,777,000 bytes of safe headroom and 147,464 KiB allocated WAL. The ninth checkpoint invalidated the slot. Normal reconnect was rejected, and independent reads found exact stale S02 at the old consumer and exact S04 at the publisher. The guarded fresh snapshot reached exact S04, then exact S05 through CDC. Experiment and cleanup were 0. [EXP-018 method](EXP-018-cdc-recovery.md#retention-crossing-reconnect-failure-and-clean-resnapshot)
+
+- **Ordered overlap with B aborted.** `guest-26.qcow2` at the paired revision, run `20261126T140634Z-r20261126t140634z1d2e`. The independent source read showed A committed and B aborted. The expected fault exit was 1, the first exact A-only Bronze version was 15, and 31 final samples stayed exact A-only with payment 303 absent. Experiment and cleanup were 0. [EXP-019 method](EXP-019-cdc-visibility.md#s05-ordered-overlap-with-b-aborted)
+
+- **Initial COPY overlap failure.** `guest-27.qcow2` at the paired revision, run `20261126T140823Z-r20261126t140823zfbcb`. Source COPY PID 509 with temporary slot `duckpipe_snap_4` and advisory blocker 489 matched before and after writer XID 756 committed S01. The runner's separate reader matched exact S01 at 14:09:08.143045 UTC, before barrier release at 14:09:08.413842. The target's last bounded order-items read contained keys 101 and 201 only. It missed committed 102 while the mapping reported `STREAMING`, zero queued changes, no error, snapshot LSN `0/19AE478` and null apply LSN. Only the persistent slot remained. Experiment returned 1 at the 60-second exact initial-copy deadline and runtime cleanup returned 0. The trace lacks an attributable change LSN and routing decision. It establishes a missed committed effect by the mandatory checkpoint deadline. The failure mechanism and persistence beyond the observation window remain open. Both fresh repeats on the same media and revision reproduced the exact missing key and status signature. [EXP-017 method](EXP-017-cdc-baseline.md#controlled-write-during-copy)
+
+- **Consumer authentication, recreation and fail-closed teardown.** `guest-28.qcow2` at the paired revision, run `20261126t141022z-e7ec`. The pin had to be loaded offline. The deliberately wrong credential made SQL health unhealthy and the status adapter fail. The restored credential returned healthy. The held one-table data stayed exact through replacement with a new container and the same cluster, and the catalog exports matched byte for byte. The checked two-row file was 1,024 bytes and kept SHA-256 `d9e03188102726b14b675b82c3e98ef55fc08bae29f7ba8656527e70044bf3d0`. The injected stop failure retained both endpoints and their firewall rules, and both guest gateway probes stayed blocked. Normal teardown removed both containers, volumes and bridge after zero publisher objects. [EXP-015 method](EXP-015-consumer-local-sink.md#teardown-review-follow-up)
+
+- **S04 rollback followed by a disjoint commit.** `guest-29.qcow2` at the paired revision, run `20261126T141221Z-r20261126t141221z2196`. The held and post-rollback reads stayed exact S03, including retained version 11. The later item 101 update produced exact `S03-control` at version 12 while order 30, item 301 and payment 302 remained absent. Experiment and cleanup were 0. [EXP-019 method](EXP-019-cdc-visibility.md#s04-rollback)
+
+- **Graceful recovery across two offline commits.** `guest-35.qcow2` at the paired revision, run `20261126T184058Z-r20261126t184058zfc6d`. With the original slot inactive, independent source checks matched S03 and S04. Retained address span was 101,744 bytes. The original volume returned exact S02 before worker start, then exact recovered S04 and continued S05. Experiment and cleanup were 0. [EXP-018 method](EXP-018-cdc-recovery.md#graceful-outage-and-same-slot-catch-up)
+
+- **Quiescent baseline.** `guest-36.qcow2` at the paired revision, run `20261126T184231Z-r20261126t184231z63be`. Four serial initial copies, exact S00–S04, sampled S04 rollback exclusion, final feedback observation and guarded cleanup passed. This confirms the held baseline independently of the COPY-overlap failure. [EXP-017 method](EXP-017-cdc-baseline.md#quiescent-four-table-baseline)
+
+- **Ordered overlap with both commits.** `guest-37.qcow2` at the paired revision, run `20261126T184419Z-r20261126t184419ze163`. The held PostgreSQL repeatable-read session remained at the old view across fresh-reader S04 convergence. First exact S04 was version 14. The independently verified A-then-B commits produced exact S05 at version 16 and in all 30 post-convergence samples. Experiment and cleanup were 0. [EXP-019 method](EXP-019-cdc-visibility.md#s05-ordered-overlap-with-both-commits)
+
+### COPY-overlap repeats
+
+| Overlay | Guest run ID | Exact source S01 before release | Observed COPY/backend/blocker | Last Bronze item IDs | Experiment / runtime cleanup |
+| --- | --- | --- | --- | --- | --- |
+| `guest-27.qcow2` | `20261126T140823Z-r20261126t140823zfbcb` | 14:09:08.143045 UTC | `duckpipe_snap_4` / 509 / 489 | 101, 201 | 1 / 0 |
+| `guest-33.qcow2` | `20261126T144500Z-r20261126t144500z5818` | 14:45:46.692666 UTC | `duckpipe_snap_4` / 514 / 493 | 101, 201 | 1 / 0 |
+| `guest-34.qcow2` | `20261126T144701Z-r20261126t144701z1400` | 14:47:48.263495 UTC | `duckpipe_snap_4` / 495 / 492 | 101, 201 | 1 / 0 |
+
+Each independent source reader matched S01 with XID 756 committed and the same COPY backend still blocked. Every failed run cleared its temporary slot, reported snapshot LSN `0/19AE478` and left the persistent sender active. None of the sampled mapping rows reported queued work or an applied LSN for the new item. The earlier EXP-017 success observed queued item work and reported a matching snapshot and apply LSN of `0/19AE438`. Both outcomes used the same pinned images and COPY/parity code. The differing sampled LSNs and queue observations motivate attribution at the snapshot/dispatch boundary. They cannot identify which internal path missed the record. The supplemental item 102 update/delete steps required exact S01 as a prerequisite, so the three failed repeats stopped before those steps. The independent S01–S03 held checkpoint checks still passed in the paired gate.
+
+### Interrupted auxiliary attempts
+
+- `guest-30.qcow2` stopped at the orders onboarding deadline, before the graceful interruption. The two seed order rows were already visible. The last recorded mapping was still `SNAPSHOT` with no snapshot LSN. This attempt did not establish restart behavior.
+- `guest-31.qcow2` returned timeout 124 before opening its bridge, while staging images. `guest-32.qcow2` returned timeout 124 during the empty-bridge preflight. Neither reached fixture writes or target checks. Both runtime cleanups reported 0. The exact causes of these setup delays were unavailable from the bounded guest logs.
+
 ## Evidence artifacts
 
 - [Exact independent source and Bronze rows](evidence/EXP-020-keyed-checkpoints.jsonl) include the two final runs' complete S00–S05 projections, both reports and empty diffs. [Integrated guest excerpts](evidence/EXP-020-guest-observations.jsonl) record the pin and identity checks, slot and table telemetry, timing, rollback and visibility holds, named versions, actual cgroups and storage, SCRAM and isolation negatives, the walkthrough and teardown.
 - [Source-only and separate fault observations](evidence/EXP-020-supplemental-observations.jsonl) document the scope of the auxiliary runtime controls.
-- Verify the public excerpts with `sha256sum -c docs/experiments/evidence/EXP-020.sha256`. The complete guest evidence remains in the ignored ticket worktree under `artifacts/EXP-020/raw/`. The final paired serial export SHA-256 was `a0d54b60cc6f0b3df008d45d1f57cd99d094d35d734819dc2d1c2299ee0de373`. The prior paired export was `fbc90c7548707df2b18a50fb5f1e3b307875712526a3ebca0968a97110002601`. The source-only serial export was `062b6327326e9037f79e540e33f8cb30dcf5c48f6dc72d25a1da5d20a9c24387`.
+- Verify the public excerpts with `sha256sum -c docs/experiments/evidence/EXP-020.sha256`. The complete guest evidence remains in the ignored ticket worktree under `artifacts/EXP-020/raw/`, with a separate `SHA256SUMS` for each complete archive. The final paired serial export SHA-256 was `a0d54b60cc6f0b3df008d45d1f57cd99d094d35d734819dc2d1c2299ee0de373`. The prior paired export was `fbc90c7548707df2b18a50fb5f1e3b307875712526a3ebca0968a97110002601`. The source-only serial export was `062b6327326e9037f79e540e33f8cb30dcf5c48f6dc72d25a1da5d20a9c24387`.
