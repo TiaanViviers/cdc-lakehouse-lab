@@ -1,8 +1,23 @@
-# Phase 2 proposal — DuckPipe CDC
+# Published Phase 2 tickets — DuckPipe CDC
 
-**Review state.** IDs 2.1–2.10 are reserved in the proposed [registry](tickets.yaml). Publication depends on maintainer approval of [1.9 (#27)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/27). The initial board entries should be **Ready** for 2.1–2.4 and **Backlog** for 2.5–2.10. Re-evaluate those statuses at publication.
+**Review state.** The maintainer approved the plan in [PR #37](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/37). IDs 2.1–2.10 are published in the [Phase 2 milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/3) and recorded in the [registry](tickets.yaml). The table records the initial status on the [shared board](https://github.com/users/TiaanViviers/projects/3).
 
-**Outcome.** Establish current-state replication from the verified stock PG16.16 publisher to a separate DuckPipe consumer with bundled DuckLake, colocated PostgreSQL catalog and persistent local data. Establish exact initial and ongoing contents, observable acknowledgements, same-slot recovery within a declared WAL budget and measured multi-table visibility limits. S3, independent DuckDB shared-lake acceptance, remote catalog deployment, transformations, reporting and write-back belong to later phases. See the [source closeout](../docs/phase-1-closeout.md), [pinned candidate investigation](../docs/experiments/EXP-010-phase-2-candidate-review.md) and [proposed ADR](../docs/decisions/ADR-002-phase-2-local-cdc-probe.md).
+| Ticket | GitHub issue | Initial board status |
+| --- | --- | --- |
+| 2.1 | [#38](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/38) | Ready |
+| 2.2 | [#39](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/39) | Ready |
+| 2.3 | [#40](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/40) | Ready |
+| 2.4 | [#41](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/41) | Ready |
+| 2.5 | [#42](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/42) | Backlog |
+| 2.6 | [#43](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/43) | Backlog |
+| 2.7 | [#44](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/44) | Backlog |
+| 2.8 | [#45](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/45) | Backlog |
+| 2.9 | [#46](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) | Backlog |
+| 2.10 | [#47](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/47) | Backlog |
+
+The typed dependencies below also appear in the published issue bodies. Native GitHub blocked-by relationships cover 1.9 and the prerequisites that prevent a ticket from starting. The 2.1 dependencies of 2.2–2.4 and the 2.6 dependencies of 2.7–2.8 are linked in the bodies because the plan allows early preparation.
+
+**Outcome.** Establish current-state replication from the verified stock PG16.16 publisher to a separate DuckPipe consumer with bundled DuckLake, colocated PostgreSQL catalog and persistent local data. Establish exact initial and ongoing contents, observable acknowledgements, same-slot recovery within a declared WAL budget and measured multi-table visibility limits. S3, independent DuckDB shared-lake acceptance, remote catalog deployment, transformations, reporting and write-back belong to later phases. See the [source closeout](../docs/phase-1-closeout.md), [pinned candidate investigation](../docs/experiments/EXP-010-phase-2-candidate-review.md) and [accepted ADR](../docs/decisions/ADR-002-phase-2-local-cdc-probe.md).
 
 ## Dependencies and execution waves
 
@@ -72,7 +87,7 @@ Four independent pieces of work earn early starts because the probe is small, pu
 | Keyed snapshots | Each side captures at most 32 rows per relation, with overflow detection, stable PK ordering, canonical UTC timestamps and integer cents. Include all four full row sets and compute both report rows on that side. Align the captured source/target read window to explicit hold points. Write named normalized JSON snapshots and differences against `tests/fixtures/v1/expected.json`. Record a catalog snapshot ID when attribution is supported. The report is derived at read time. Source receipts, XIDs and reset metadata stay in source diagnostics. | 2.3 under `scripts/cdc/parity/` and dedicated offline tests |
 | Trace | One observer samples a shared run ID, phase/checkpoint, UTC and monotonic elapsed time, sourced LSN fields, ownership and error state. Emit redacted PostgreSQL and consumer observations separately with the same labels. Null means absent or unobserved. Commit/end LSN is recorded only if exposed and attributable. Capture queue, per-table snapshot/applied LSN, persisted group checkpoint and restart identity where supported. Record first exact parity independently. | 2.4 under `scripts/cdc/wal/` for PostgreSQL and 2.5 for connector fields. 2.6–2.8 coordinate timelines. |
 
-## Proposed tickets
+## Ticket definitions
 
 ### 2.1 Prove remote PG16 snapshot and DML on the pinned DuckPipe build
 

@@ -126,80 +126,80 @@ tickets:
   - id: "2.1"
     phase: 2
     title: "Prove remote PG16 snapshot and DML on the pinned DuckPipe build"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 38
     labels: ["research", "priority:high"]
     dependencies: ["1.9"]
     research_questions: ["R01", "R02", "R03", "R04", "R08", "R09"]
   - id: "2.2"
     phase: 2
     title: "Scope publisher access and verify replication-object lifecycle"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 39
     labels: ["feature"]
     dependencies: ["1.9", "2.1"]
     research_questions: ["R01", "R02", "R04", "R05"]
   - id: "2.3"
     phase: 2
     title: "Build independent CDC checkpoint parity"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 40
     labels: ["feature"]
     dependencies: ["1.9", "2.1"]
     research_questions: ["R02", "R03", "R13"]
   - id: "2.4"
     phase: 2
     title: "Sample PostgreSQL replication and WAL independently"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 41
     labels: ["feature"]
     dependencies: ["1.9", "2.1"]
     research_questions: ["R04", "R05", "R16"]
   - id: "2.5"
     phase: 2
     title: "Package the verified consumer and its local DuckLake sink"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 42
     labels: ["feature", "priority:high"]
     dependencies: ["1.9", "2.1"]
     research_questions: ["R01", "R04", "R05", "R08", "R09", "R16"]
   - id: "2.6"
     phase: 2
     title: "Verify four-table initial copy and ongoing CDC"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 43
     labels: ["research", "priority:high"]
     dependencies: ["1.9", "2.2", "2.3", "2.4", "2.5"]
     research_questions: ["R01", "R02", "R03", "R04", "R13", "R16"]
   - id: "2.7"
     phase: 2
     title: "Prove same-slot restart and bound publisher WAL retention"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 44
     labels: ["research", "priority:high"]
     dependencies: ["1.9", "2.6"]
     research_questions: ["R03", "R04", "R05", "R16"]
   - id: "2.8"
     phase: 2
     title: "Characterize multi-table visibility under commit, rollback and overlap"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 45
     labels: ["research"]
     dependencies: ["1.9", "2.6"]
     research_questions: ["R02", "R03", "R13", "R16"]
   - id: "2.9"
     phase: 2
     title: "Verify the complete Phase 2 CDC gate"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 46
     labels: ["research", "priority:high"]
     dependencies: ["1.9", "2.7", "2.8"]
     research_questions: ["R01", "R02", "R03", "R04", "R05", "R06", "R08", "R09", "R13", "R16"]
   - id: "2.10"
     phase: 2
     title: "Review Phase 2 findings and hand over to Phase 3"
-    status: proposed
-    github_issue: null
+    status: published
+    github_issue: 47
     labels: ["docs"]
     dependencies: ["1.9", "2.9"]
     research_questions: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R13", "R16"]

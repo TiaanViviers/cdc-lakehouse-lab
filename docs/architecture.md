@@ -82,7 +82,7 @@ flowchart TB
 
 ## DuckPipe and catalog
 
-The extension-based candidate documents remote ingestion. Phase 2 must verify this path against a separate stock PostgreSQL 16.16 publisher. The proposed probe colocates DuckPipe, pg_ducklake and metadata on the consumer PostgreSQL and uses persistent local table data. Phase 3 covers object storage and independent reads. A separate catalog PostgreSQL or RDS deployment needs its own compatibility evidence. Catalog hosting and extension hosting have different requirements. [Pinned candidate review](experiments/EXP-010-phase-2-candidate-review.md) · [Proposed ADR-002](decisions/ADR-002-phase-2-local-cdc-probe.md)
+The extension-based candidate documents remote ingestion. Phase 2 must verify this path against a separate stock PostgreSQL 16.16 publisher. The proposed probe colocates DuckPipe, pg_ducklake and metadata on the consumer PostgreSQL and uses persistent local table data. Phase 3 covers object storage and independent reads. A separate catalog PostgreSQL or RDS deployment needs its own compatibility evidence. Catalog hosting and extension hosting have different requirements. [Pinned candidate review](experiments/EXP-010-phase-2-candidate-review.md) · [ADR-002](decisions/ADR-002-phase-2-local-cdc-probe.md)
 
 A DuckLake catalog maps tables/snapshots to Parquet files. DuckDB computation happens in external processes (e.g. Windmill workers), not inside the S3 bucket.
 

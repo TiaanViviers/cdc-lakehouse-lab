@@ -2,7 +2,7 @@
 
 A reproducible data-engineering research environment exploring PostgreSQL WAL-based change data capture, DuckPipe, DuckLake, DuckDB, Windmill, SQL query serving, asynchronous operations and end-to-end observability.
 
-> **Status (2026-11-26).** The Phase 1 technical source gate passed on isolated PostgreSQL 16.16 with exact synthetic fixture and fault evidence. The Phase 2 remote DuckPipe plan awaits approval. The full reference topology remains the research target. See the [Phase 1 closeout](docs/phase-1-closeout.md).
+> **Status (2026-11-26).** The Phase 1 technical source gate passed on isolated PostgreSQL 16.16 with exact synthetic fixture and fault evidence. The approved Phase 2 backlog is published. Remote DuckPipe compatibility awaits its first runtime experiment. The full reference topology remains the research target. See the [Phase 1 closeout](docs/phase-1-closeout.md).
 
 ## What we are building
 
@@ -40,7 +40,7 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 - [Component compatibility and candidate versions](docs/compatibility-matrix.md)
 - [Local runtime design](docs/local-runtime-design.md)
 - [Phase 0 closeout and approval gate](docs/phase-0-closeout.md)
-- [Phase 1 closeout and proposed Phase 2 handover](docs/phase-1-closeout.md)
+- [Phase 1 closeout and Phase 2 handover](docs/phase-1-closeout.md)
 - [Development guide](docs/development-guide.md)
 - [Roadmap and dependencies](docs/roadmap.md)
 - [Ticket naming / issue numbering](docs/issue-conventions.md)
