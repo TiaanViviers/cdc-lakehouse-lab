@@ -2,6 +2,7 @@ SELECT 'group', name, publication, slot_name, enabled, mode, table_count,
        last_sync, conninfo IS NOT NULL
 FROM duckpipe.groups();
 SELECT 'checkpoint', name, confirmed_lsn FROM duckpipe.sync_groups;
+SELECT 'mapping_lsn', id, snapshot_lsn, applied_lsn FROM duckpipe.table_mappings ORDER BY id;
 SELECT 'table', sync_group, source_table, target_table, state, rows_synced,
        queued_changes, consecutive_failures, error_message IS NOT NULL,
        applied_lsn, snapshot_rows, snapshot_duration_ms

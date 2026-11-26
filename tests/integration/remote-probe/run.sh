@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 export LC_ALL=C TZ=UTC
-unset DOCKER_CONTEXT COMPOSE_ENV_FILES
+unset DOCKER_CONTEXT COMPOSE_ENV_FILES SOURCE_INPUT_ID
 export COMPOSE_DISABLE_ENV_FILE=1
 
 probe=tests/integration/remote-probe
@@ -71,7 +71,7 @@ healthy() {
 }
 owned() {
     local cid=$1 service=$2
-    test "$(docker_local inspect -f '{{index .Config.Labels "com.docker.compose.project"}}/{{index .Config.Labels "com.docker.compose.service"}}' "$cid")" = "$COMPOSE_PROJECT_NAME/$service"
+    test "$(docker_local inspect -f '{{index .Config.Labels "com.docker.compose.project"}}/{{index .Config.Labels "com.docker.compose.service"}}' "$cid")" = "$COMPOSE_PROJECT_NAME/$service" &&
     test "$(docker_local inspect -f '{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}' "$cid")" = "$SOURCE_INPUT_ID"
 }
 resources() {
@@ -79,6 +79,7 @@ resources() {
     echo "resources $service"
     docker_local inspect -f 'id={{.Id}} image={{.Image}} host_pid={{.State.Pid}} oom={{.State.OOMKilled}} memory={{.HostConfig.Memory}} swap={{.HostConfig.MemorySwap}} cpu={{.HostConfig.NanoCpus}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}} privileged={{.HostConfig.Privileged}} log={{json .HostConfig.LogConfig}}' "$cid"
     test -z "$(docker_local port "$cid")"
+    test "$(docker_local inspect -f '{{.HostConfig.Privileged}} {{.State.OOMKilled}}' "$cid")" = 'false false'
     test "$(docker_local inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{end}}{{end}}' "$cid")" = "$volume"
     docker_local volume inspect -f '{{.Name}} {{json .Labels}}' "$volume"
     test "$(docker_local volume inspect -f '{{index .Labels "com.docker.compose.project"}}' "$volume")" = "$COMPOSE_PROJECT_NAME"
@@ -181,13 +182,50 @@ test "$(df -Pk "$(docker_local info -f '{{.DockerRootDir}}')" | awk 'NR==2 {prin
 for image_archive in source consumer probe; do
     timeout 90s docker --host unix:///var/run/docker.sock load -i "$media/$image_archive.tar"
 done
-cat "$media/images.txt"
+# Containerd inspect reports the index ID. Verify the selected member and
+# config directly from the content-addressed OCI archive as well.
+python3 - "$media" "${source_image##*@}" "${consumer_image##*@}" <<'PY_IMAGE'
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tarfile
+
+directory, source_index, consumer_index = sys.argv[1:]
+pins = [
+    ("source", source_index, "d755a91aff87574a57060f86ecc0d55f83ccb51ceec6ec6f904c1210d018d998",
+     "76500a7555b1f245546af93974bb208366013cf537fa3038f0bdd493efe0c612"),
+    ("consumer", consumer_index, "de0a9036fd11a75eaff23508209c2cea675d081aecea51f60cdca78c0802a5a6",
+     "a0452c3a54190ba6eeaf94dd3e434f97fd3862944c73b3f681f85eb8e3b2f56e"),
+]
+for role, index, manifest, config in pins:
+    with tarfile.open(Path(directory) / f"{role}.tar") as archive:
+        def blob(digest):
+            digest = digest.removeprefix("sha256:")
+            data = archive.extractfile(f"blobs/sha256/{digest}").read()
+            if hashlib.sha256(data).hexdigest() != digest:
+                raise ValueError(f"{role}: digest mismatch for {digest}")
+            return json.loads(data)
+
+        refs = json.load(archive.extractfile("index.json"))["manifests"]
+        members = blob(index)["manifests"]
+        amd64 = [m["digest"] for m in members
+                 if m.get("platform") == {"os": "linux", "architecture": "amd64"}]
+        config_digest = blob(manifest)["config"]["digest"]
+        image = blob(config)
+        if ([ref["digest"] for ref in refs] != [index] or amd64 != [f"sha256:{manifest}"]
+                or config_digest != f"sha256:{config}"
+                or (image["os"], image["architecture"]) != ("linux", "amd64")):
+            raise ValueError(f"{role}: archive identity mismatch")
+        print(f"{role} index={index} amd64={amd64[0]} config={config_digest}")
+PY_IMAGE
 docker_local image ls --tree postgres
 docker_local image ls --tree pgducklake/pipe-ci-builds
-docker_local image inspect "$source_image" "$consumer_image" \
-    -f '{{.Os}}/{{.Architecture}} {{.Id}} {{json .RepoDigests}}'
-test "$(docker_local image inspect "$consumer_image" -f '{{.Id}}')" = sha256:a0452c3a54190ba6eeaf94dd3e434f97fd3862944c73b3f681f85eb8e3b2f56e
-test "$(docker_local image inspect "$source_image" -f '{{.Os}}/{{.Architecture}}')" = linux/amd64
+for ref in "$source_image" "$consumer_image"; do
+    observed=$(docker_local image inspect "$ref" -f '{{.Os}}/{{.Architecture}} {{.Id}}')
+    echo "$ref $observed"
+    test "$observed" = "linux/amd64 ${ref##*@}"
+done
 for account in source-db probe-consumer probe-role; do
     openssl rand -hex 24 > "secrets/$account-password"
 done
@@ -195,6 +233,7 @@ done
 chmod 0444 secrets/probe-consumer-password
 
 trap cleanup EXIT
+trap 'exit 124' TERM
 for fw in iptables ip6tables; do
     test "$("$fw" -S FORWARD | awk '$1=="-A" {print; exit}')" = '-A FORWARD -j DOCKER-USER'
     "$fw" -S DOCKER-USER
@@ -283,7 +322,7 @@ healthy "$consumer_id"
 test "$(docker_local network inspect "$SOURCE_INPUT_ID" -f '{{len .Containers}}')" = 2
 docker_local network inspect "$SOURCE_INPUT_ID" -f '{{range .Containers}}{{println .Name .IPv4Address .IPv6Address}}{{end}}'
 for cid in "$source_id" "$consumer_id"; do
-    docker_local exec "$cid" sh -ec 'ls /sys/class/net; cat /proc/net/route; cat /proc/1/comm'
+    docker_local exec "$cid" sh -ec 'ls /sys/class/net; cat /proc/net/route; cat /proc/1/comm; readlink /proc/1/ns/net; readlink /proc/1/ns/pid'
 done
 sample
 
@@ -295,6 +334,7 @@ SHOW hba_file;
 SHOW password_encryption;
 SHOW duckpipe.query_routing;
 SELECT extname, extversion FROM pg_extension ORDER BY extname;
+SELECT duckdb.raw_query('SELECT version()');
 SELECT name, setting, unit, source FROM pg_settings
 WHERE name IN ('max_connections','shared_buffers','duckdb.memory_limit','duckdb.threads',
                'duckdb.max_temp_directory_size','duckdb.unsafe_allow_mixed_transactions')
