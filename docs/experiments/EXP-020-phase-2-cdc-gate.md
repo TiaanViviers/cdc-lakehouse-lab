@@ -100,6 +100,10 @@ The required correction is a reviewed connector fix or operating strategy that k
 
 The original verifier could emit a positive M2 verdict after the two held-checkpoint runs passed, even with the separately reproduced COPY-overlap failure. The command now emits only a paired subgate result and always requires a full M2 review. The [runbook](../cdc-gate.md#review-the-full-m2-decision) requires explicit positive COPY evidence alongside the pair and the other mandatory operational and correctness outcomes. The recorded M2 decision above includes both blockers. Historical guest exports retain their original output. [Independent PR review](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/57#pullrequestreview-6079173591)
 
+Replaying the original paired export in a fresh local directory with the revised verifier returned `Paired CDC subgate: fail` and exit 1. The revised `verdict.json` preserved the canonical hashes and retention measurements and added the explicit scope and review requirement. The offline tests cover a fully passing pair with failed, missing, inconclusive and successful COPY evidence. Each emits a scoped pass and requires full M2 review. A separate test verifies that positive retention cannot mask an inexact target export. All 50 offline tests, repository checks, the five regression controls and the launcher syntax check passed.
+
+On `guest-38.qcow2`, `make test-cdc MEDIA=/mnt/exp020` tested `847adfa45e325bfef045c8fc10526cdb96743245` with the same pinned images. Fresh projects `20261126T193515Z-r20261126t193515zf595` and `20261126T193745Z-r20261126t193745zf67a` both matched S00–S05 and the original canonical hashes, reproduced the retention stall, and recorded zero publisher replication objects and cleanup exit 0. The second project followed verified teardown. The command printed `Paired CDC subgate: fail` and the full-review requirement, with Make exit 2. The guest archive SHA-256 was `0b74cf0563c397d7623ad38641aa3b86af22cf7e651a6ed4d38e9d79a8666847`. [Checksummed rerun excerpt](evidence/EXP-020-review-rerun.json)
+
 ## Consolidated Phase 2 observations
 
 ### Feedback, apply and interruption

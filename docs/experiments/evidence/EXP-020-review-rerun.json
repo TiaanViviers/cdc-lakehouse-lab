@@ -1,0 +1,87 @@
+{
+  "guest_overlay": "guest-38.qcow2",
+  "revision": "847adfa45e325bfef045c8fc10526cdb96743245",
+  "checkout_sha256": "1014d7d2af55bf9e78ed6417e0d806ee451f8c265e306f2a6e9057e35a5ad776",
+  "guest_export_sha256": "0b74cf0563c397d7623ad38641aa3b86af22cf7e651a6ed4d38e9d79a8666847",
+  "command": "make test-cdc MEDIA=/mnt/exp020",
+  "make_exit": 2,
+  "output": [
+    "Paired CDC subgate: fail",
+    "Full M2 decision requires review of all mandatory evidence, including controlled COPY overlap."
+  ],
+  "runs": [
+    {
+      "run_id": "20261126T193515Z-r20261126t193515zf595",
+      "project": "cdc22-r20261126t193515zf595",
+      "revision": "847adfa45e325bfef045c8fc10526cdb96743245",
+      "images": [
+        "sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37",
+        "sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348"
+      ],
+      "exact_checkpoints": [
+        "S00",
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "after-active-sparse"
+      ],
+      "teardown": "experiment_exit=0 cleanup_exit=0",
+      "remaining_slots": 0,
+      "remaining_publications": 0,
+      "remaining_roles": 0
+    },
+    {
+      "run_id": "20261126T193745Z-r20261126t193745zf67a",
+      "project": "cdc22-r20261126t193745zf67a",
+      "revision": "847adfa45e325bfef045c8fc10526cdb96743245",
+      "images": [
+        "sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37",
+        "sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348"
+      ],
+      "exact_checkpoints": [
+        "S00",
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "after-active-sparse"
+      ],
+      "teardown": "experiment_exit=0 cleanup_exit=0",
+      "remaining_slots": 0,
+      "remaining_publications": 0,
+      "remaining_roles": 0
+    }
+  ],
+  "verdict": {
+    "scope": "paired-subgate",
+    "verdict": "fail",
+    "requires_m2_review": true,
+    "hashes": {
+      "S00/source": "4a5657f9a0f7d94ef47b07ebda9966e758800ec52ac8d640215d536a439842a3",
+      "S00/target": "4a5657f9a0f7d94ef47b07ebda9966e758800ec52ac8d640215d536a439842a3",
+      "S01/source": "fd0b47aa24cbc35fe37b1587c2809ba259e6f70e30fb6413a4d8427432dbcaf7",
+      "S01/target": "fd0b47aa24cbc35fe37b1587c2809ba259e6f70e30fb6413a4d8427432dbcaf7",
+      "S02/source": "98e476e4cbe28e5f95ffcdf45a0c4342b9b69ea16a8a842de9cf03a1c91f459d",
+      "S02/target": "98e476e4cbe28e5f95ffcdf45a0c4342b9b69ea16a8a842de9cf03a1c91f459d",
+      "S03/source": "9d96c16bc09199fe08540c0f62b21074bfee4c9e5ac1b3489adebb46fa032be1",
+      "S03/target": "9d96c16bc09199fe08540c0f62b21074bfee4c9e5ac1b3489adebb46fa032be1",
+      "S04/source": "379bbe49913ec661a8057e1acbf7dab420dab6d98911f20672641793cb6814cc",
+      "S04/target": "379bbe49913ec661a8057e1acbf7dab420dab6d98911f20672641793cb6814cc",
+      "S05/source": "7450c323c202bcaf593a1a282091c0a40ef700219a272d5810d722e40582a277",
+      "S05/target": "7450c323c202bcaf593a1a282091c0a40ef700219a272d5810d722e40582a277"
+    },
+    "retention": {
+      "20261126T193515Z-r20261126t193515zf595": {
+        "progress_observed": false,
+        "persistent_growth": true
+      },
+      "20261126T193745Z-r20261126t193745zf67a": {
+        "progress_observed": false,
+        "persistent_growth": true
+      }
+    }
+  }
+}
