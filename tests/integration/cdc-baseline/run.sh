@@ -5,8 +5,12 @@ umask 077
 exec </dev/null
 cd "$(dirname "$0")/../../.."
 media=$(realpath "${1:?staged media directory}")
-trial=${2:?baseline or copy-window}
-[[ $trial == baseline || $trial == copy-window ]]
+trial=${2:?baseline, copy-window or gate}
+case $trial in
+    baseline|copy-window) experiment=017 ticket=43 sequence=26 controller=cdc-baseline/baseline.py ;;
+    gate) experiment=020 ticket=46 sequence=29 controller=cdc-gate/gate.py ;;
+    *) exit 2 ;;
+esac
 : "${CDC_REVISION:?tested revision}" "${CDC_OVERLAY:?guest overlay identity}"
 [[ $CDC_REVISION =~ ^[0-9a-f]{40}$ && $CDC_OVERLAY =~ ^[a-zA-Z0-9_.-]+$ ]]
 test "$(id -u)" = 0
@@ -20,19 +24,24 @@ utc=$(date -u +%Y%m%dT%H%M%SZ)
 export CDC_RUN_KEY="r$(date -u +%Y%m%dt%H%M%Sz)$(openssl rand -hex 2)"
 # The guarded 2.2 publisher CLI enrolls only projects with this prefix.
 export COMPOSE_PROJECT_NAME="cdc22-$CDC_RUN_KEY"
-export RUN_ID="$utc-$CDC_RUN_KEY" RUNNER_ID="$utc-p01-26" TRIAL="$trial"
-export EVIDENCE="$PWD/artifacts/EXP-017/$RUN_ID"
+export RUN_ID="$utc-$CDC_RUN_KEY" RUNNER_ID="$utc-p01-$sequence" TRIAL="$trial"
+export EVIDENCE="$PWD/artifacts/EXP-$experiment/$RUN_ID"
+if [[ $trial == gate ]]; then
+    parent=$(realpath "${3:?gate evidence parent}")
+    [[ $parent == "$PWD/artifacts/EXP-020/pair-"* && -d $parent ]]
+    export EVIDENCE="$parent/$RUN_ID"
+fi
 export SOURCE_RUNNER_IMAGE=cdc-lab-fixture-runner:v1-1.8
 mkdir -p "${EVIDENCE%/*}"
 mkdir "$EVIDENCE" secrets
 exec > >(tee "$EVIDENCE/run.txt") 2>&1
 trap 'echo "Run failed at line $LINENO (exit $?)" >&2' ERR
 trap 'exit 124' TERM
-echo "owner=Codex ticket=43 trial=$trial run=$RUN_ID runner=$RUNNER_ID sha=$CDC_REVISION overlay=$CDC_OVERLAY project=$COMPOSE_PROJECT_NAME"
+echo "owner=Codex ticket=$ticket trial=$trial run=$RUN_ID runner=$RUNNER_ID sha=$CDC_REVISION overlay=$CDC_OVERLAY project=$COMPOSE_PROJECT_NAME"
 echo 'Budgets: guest 2 vCPU / 2 GiB, run 480s, checkpoint 60s, polling 500ms after a read, rollback hold 10s'
 d() { timeout --foreground -k 2s 35s docker --host unix:///var/run/docker.sock "$@"; }
 stack() { d compose -f compose.source.yaml -f compose.cdc.yaml -f compose.runner.yaml --profile source --profile cdc --profile generator "$@"; }
-bridge="p26${CDC_RUN_KEY:10:6}${CDC_RUN_KEY:17:4}"
+bridge="p${sequence}${CDC_RUN_KEY:10:6}${CDC_RUN_KEY:17:4}"
 label="com.docker.compose.project=$COMPOSE_PROJECT_NAME"
 rules=()
 identity() {
@@ -78,10 +87,12 @@ dispose() {
     [[ -z $ids && -z $volumes ]] || return 1
     d network rm "$SOURCE_INPUT_ID" || return 1
     [[ ! -e /sys/class/net/$bridge ]] || return 1
+    test -z "$(d network ls -q --filter "name=^${COMPOSE_PROJECT_NAME}-input$")" || return 1
     for entry in "${rules[@]}"; do
         read -r fw chain <<< "$entry"
         rule -D "$fw" "$chain" || return 1
     done
+    echo 'Project containers, volumes, bridge and firewall rules removed'
 }
 finish() {
     local rc=$? cleanup=0
@@ -92,6 +103,9 @@ finish() {
     else
         rm -f secrets/{source-db,cdc-catalog,source-fixture-reader,source-fixture-writer,publisher}-password "secrets/$COMPOSE_PROJECT_NAME-fixture-id"
         rmdir secrets
+    fi
+    if [[ $trial == gate && $rc == 0 && $cleanup == 0 ]]; then
+        touch "$EVIDENCE/teardown.ok"
     fi
     echo "experiment_exit=$rc cleanup_exit=$cleanup"
     (( cleanup == 0 )) || exit 1
@@ -160,4 +174,4 @@ for id in "$SOURCE_ID" "$CONSUMER_ID"; do
     '
 done
 d volume inspect -f '{{.Name}} {{json .Labels}}' "${COMPOSE_PROJECT_NAME}_source-pg" "${COMPOSE_PROJECT_NAME}_cdc-pg"
-PYTHONPATH=. python3 -u tests/integration/cdc-baseline/baseline.py
+PYTHONPATH=. python3 -u "tests/integration/$controller"
