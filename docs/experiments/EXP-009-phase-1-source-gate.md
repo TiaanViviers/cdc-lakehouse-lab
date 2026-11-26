@@ -114,12 +114,12 @@ These are publisher observations made around checkpoint reads. The SQL row/recei
 | Source final Docker stats | 128 PID limit, 768 MiB | 6 PIDs, 69.86 MiB, 6.07% CPU, 51.1/55.7 MB block I/O | 6 PIDs, 69.86 MiB, 0.03% CPU, 51.1/55.7 MB block I/O | 6 PIDs, 70.09 MiB, 0.02% CPU, 51.3/55.7 MB block I/O |
 | One-shot runner maximum sampled cgroup peak | 268,435,456 bytes (256 MiB) | 23,719,936 bytes | 23,674,880 bytes | 23,732,224 bytes |
 | Replay test container maximum sampled peak | 268,435,456 bytes (256 MiB) | 72,376,320 bytes | 72,400,896 bytes | 72,396,800 bytes |
-| Runner sample CPU usage, cumulative | 0.5 CPU, quota `50000 100000` | 0.315 s max one-shot, 12.263 s replay container | 0.283 s max one-shot, 11.714 s replay container | 0.288 s max one-shot, 11.815 s replay container |
+| Runner sample CPU usage, cumulative | 0.5 CPU, quota `50000 100000` | 0.321211 s max one-shot, 12.263 s replay container | 0.290707 s max one-shot, 11.714 s replay container | 0.302656 s max one-shot, 11.815 s replay container |
 | Allocated PGDATA including WAL, peak | Stop at 524,288 KiB | 47,576 KiB | 47,576 KiB | 47,576 KiB |
 | Allocated WAL, peak | Stop at 262,144 KiB | 16,392 KiB | 16,392 KiB | 16,392 KiB |
 | Free volume filesystem space, minimum | Stop below 1,048,576 KiB | 4,244,640 KiB | 4,244,640 KiB | 4,244,636 KiB |
 
-Docker inspection and cgroup files confirmed the source memory and CPU limits, 128 PIDs, zero swap, 128 MiB shared memory and the `local` log driver capped at three 5 MB files. The retained S00 runner's Docker inspection showed a 256 MiB memory-plus-swap limit, 0.5 CPU and 32 PIDs. All sampled runner and source cgroups showed zero OOM and OOM kills. PostgreSQL logged a shutdown checkpoint and clean exit from its temporary bootstrap instance. Final teardown of the healthy workload container independently returned exit 0.
+The one-shot maxima use all resource events from the integrated runner, sequential and overlap harnesses, and the separate walkthrough where present. That gives 75, 81 and 81 samples for runs 02, 03 and 04. Replay invocations share a cgroup and use its separate cumulative counter. Docker inspection and cgroup files confirmed the source memory and CPU limits, 128 PIDs, zero swap, 128 MiB shared memory and the `local` log driver capped at three 5 MB files. The retained S00 runner's Docker inspection showed a 256 MiB memory-plus-swap limit, 0.5 CPU and 32 PIDs. All sampled runner and source cgroups showed zero OOM and OOM kills. PostgreSQL logged a shutdown checkpoint and clean exit from its temporary bootstrap instance. Final teardown of the healthy workload container independently returned exit 0.
 
 ### Read-only walkthrough
 
@@ -135,9 +135,13 @@ v1|42|S04|4d2c11bd073069f7a4a9f38ba044d58219fad0c37ab3a2b43b300a97414432f8|856
 
 ## Evidence artifacts
 
-The runbook has the redacted commands. The local staging directory `~/cdc-issue26-vm.FKUuitYV/` retains the console transcripts, VM launcher and four evidence archives. Under `source-gate/` each complete run contains independently queried `S00.json` through `S06.json`, `comparisons.jsonl`, resolved Compose configuration, settings and WAL, sampled cgroups and storage, positive and negative authentication output, and filtered PostgreSQL logs. Per-fault SQL and before/after data are in `schema/`, `sequential/`, `overlap/` and `replay/`. The guest launcher recorded startup/shutdown output and the separate walkthrough capture.
+The redacted publication contains primary evidence from run 02 and run 04, including the repeat after teardown. It includes the original checkpoint SQL rows and comparison results, isolation and teardown transcripts, source settings, filtered PostgreSQL logs, WAL and resource samples, fault inputs and outputs, and run 04's read-only walkthrough. The manifest records the tested commit, run IDs and per-record SHA-256 values. The bundle README gives reproduction commands and explains how to inspect the JSON bundles. [Browse the pinned evidence](https://gist.github.com/TiaanViviers/04c148b1f50816df6ac3e95d4237e47e/1b503cb2cc3f99fbd0abc96c50838122952072fa) · [Download ZIP](https://gist.github.com/TiaanViviers/04c148b1f50816df6ac3e95d4237e47e/archive/1b503cb2cc3f99fbd0abc96c50838122952072fa.zip)
 
-| Local archive | SHA-256 |
+On 2026-11-26 the ZIP downloaded without authentication. Its 16 files matched the publication allow-list, and all 625 evidence records matched the manifest's hashes. All 22 downloaded SQL snapshots matched the independent fixture. Extract the ZIP and run `sha256sum -c SHA256SUMS` in the extracted directory. The SHA-256 of `SHA256SUMS` itself is `68e5f429808bfa767e95b6864af580e4f5a72f297bd6cba1b6f16dc134714226`.
+
+The original archives and staging transcripts remain local. The archive hashes below identify the materials inspected during independent review. The published checksums refer to the redacted files. [Independent review of the primary evidence](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/36#pullrequestreview-6069600500)
+
+| Original archive | SHA-256 |
 | --- | --- |
 | `evidence-01.tar.gz` (guest tooling failure) | `6a3ac4e97d502fa7ef64a692938a77ef2f40f13a6cd83a271355bb2f9ea49fa4` |
 | `evidence-02.tar.gz` | `6e1377c55375c207195634cfe15b6cd9d24f34d549821b872265e477b99038d3` |
