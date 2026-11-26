@@ -2,7 +2,7 @@ BASE ?= HEAD
 PYTHON ?= python3
 WHITESPACE_CHECK = git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab diff --check --no-ext-diff
 
-.PHONY: help check check-whitespace check-local-files test-unit
+.PHONY: help check check-whitespace check-local-files test-unit test-integration
 
 help:
 	@printf '%s\n' \
@@ -10,7 +10,8 @@ help:
 		'make check              Run all repository checks' \
 		'make check-whitespace   Check the index against BASE (default HEAD) and check unstaged changes' \
 		'make check-local-files  Check ignore rules, indexed paths and the indexed env example' \
-		'make test-unit          Run the offline unit tests'
+		'make test-unit          Run the offline unit tests' \
+		'make test-integration   Run the verified disposable source gate'
 
 check: check-whitespace check-local-files
 
@@ -41,3 +42,6 @@ check-local-files:
 
 test-unit:
 	$(PYTHON) -m unittest discover -s tests/unit -v
+
+test-integration:
+	bash tests/integration/source-gate/run.sh
