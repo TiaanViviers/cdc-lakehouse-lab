@@ -215,7 +215,7 @@ reject wrong-password 'password authentication failed' peer_sql "$publisher" -c 
 reject wrong-database 'pg_hba.conf rejects connection' peer_sql "$publisher" -d postgres -c 'SELECT 1' <secrets/publisher-password
 reject physical 'pg_hba.conf rejects replication connection' peer_sql "$publisher" -d 'dbname=source_lab replication=true' -c IDENTIFY_SYSTEM <secrets/publisher-password
 peer_sql source_fixture_reader -c 'SELECT current_user,current_database()' <secrets/reader-password
-reject reader-repl 'replication privilege' peer_sql source_fixture_reader -d 'dbname=source_lab replication=database' -c IDENTIFY_SYSTEM <secrets/reader-password
+reject reader-repl 'permission denied to start WAL sender' peer_sql source_fixture_reader -d 'dbname=source_lab replication=database' -c IDENTIFY_SYSTEM <secrets/reader-password
 reject reader-impersonation 42501 peer_sql source_fixture_reader -c "SET ROLE $publisher" <secrets/reader-password
 peer_sql "$publisher" -c 'SELECT current_user' <secrets/publisher-password
 admin inventory > "$evidence/prepared.txt"
@@ -244,6 +244,13 @@ reject wrong-fingerprint 'refusing slot drop' admin drop-slot 0/1 0/1
 cat sql/cdc/source/{guard,drop-slot}.sql |
     reject wrong-database-guard 'refusing CDC operation on unexpected source' source_sql -d postgres -v "run_key=$CDC_RUN_KEY"         -v "disposable_id=$disposable_id" -v "created_restart_lsn=${fingerprint[0]}" -v "created_flush_lsn=${fingerprint[1]}" -f -
 admin drop-slot "${fingerprint[@]}"
+test -z "$(slot_row)"
+# Occupy the exact reserved name with a deliberately unrelated physical slot.
+source_sql -c "SELECT * FROM pg_create_physical_replication_slot('$slot',true)"
+collision_slot=$(slot_row)
+reject unrelated-slot 'refusing slot drop' admin drop-slot "${fingerprint[@]}"
+test "$(slot_row)" = "$collision_slot"
+source_sql -c "SELECT pg_drop_replication_slot('$slot')" # The test owns this collision sentinel.
 test -z "$(slot_row)"
 sample
 
@@ -373,7 +380,7 @@ no_objects
 admin restore-identity "$role_oid"
 admin drop-role "$role_oid"
 "${docker[@]}" exec --user postgres "$source_id" sh -ec 'mv "$PGDATA/pg_hba.exp012" "$PGDATA/pg_hba.conf"'
-source_sql -c 'SELECT pg_reload_conf()'
+source_sql -c 'SELECT pg_reload_conf(); ALTER ROLE source_fixture_reader PASSWORD NULL;'
 admin inventory > "$evidence/after.txt"
 diff -u "$evidence/before.txt" "$evidence/after.txt"
 source_sql -v "id=$disposable_id" -f - <<'SQL'
