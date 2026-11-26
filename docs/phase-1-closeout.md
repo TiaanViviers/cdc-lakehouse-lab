@@ -2,7 +2,7 @@
 
 [Ticket 1.9 (#27)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/27) · 2026-11-26 · Reviewed main `338f7569f320bdeaa89b3c2487ccec311a6ff811`
 
-**Verdict. The M1 technical source gate is met.** The merged implementation and reviewed runtime evidence cover the required isolated source, exact committed fixture states, rollback, overlap, replay and operator inspection. No material unmet M1 requirement surfaced. Phase 1's GitHub milestone and handover ticket remain open pending approval and publication of the [proposed Phase 2 backlog](../backlog/phase-2.md).
+**Verdict. The M1 technical source gate is met.** The merged implementation and reviewed runtime evidence cover the required isolated source, exact committed fixture states, rollback, overlap, replay and operator inspection. No material unmet M1 requirement surfaced. The maintainer approved the [Phase 2 backlog](../backlog/phase-2.md) and it is published. The handover issue records the final GitHub closing sequence.
 
 | Area | Observed or verified in the 1.9 review |
 | --- | --- |
@@ -43,4 +43,8 @@
 
 As of 2026-11-26, Phase 1 had eight closed prerequisite issues in Done and only [#27](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/27) open in In Progress on the [shared board](https://github.com/users/TiaanViviers/projects/3). The [Phase 1 milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/2) was open. GitHub's open and closed issue list and the registry had no Phase 2 IDs before this proposal.
 
-After explicit maintainer approval, record the approval and reviewed revision. Recheck main, the registry, open and closed issues and milestone names. Use the approved plan after human merge to create the Phase 2 milestone and publish the approved issues idempotently by stable ID. Resolve GitHub dependency links, verify titles/labels/milestone and Ready/Backlog statuses on the existing board, and record actual links in a publication update. Confirm all Phase 1 siblings remain closed/Done and reconcile the registry with the live board. Close the Phase 1 milestone, then complete #27 and mark it Done last. Record the actual sequence and final state in #27. At planning review these publication and closure steps are pending.
+The maintainer approved [planning PR #37](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/37) and authorized publication on 2026-11-26. The approved revision merged to main as `2b818b235febd1cd91343dec2190955feca78fd0`. The [Phase 2 milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/3) contains ten issues, #38–#47. The [published backlog](../backlog/phase-2.md) and [registry](../backlog/tickets.yaml) record their identities. The initial board status is Ready for 2.1–2.4 and Backlog for 2.5–2.10. The issue bodies retain all 23 typed dependency links. GitHub has 18 native blocked-by relationships and the remaining five describe when independent preparation can start before dependent runtime work.
+
+To reproduce the publication audit, run `gh issue list --milestone "Phase 2 — DuckPipe CDC" --state all --json number,title,state,labels,milestone,projectItems`, `gh api repos/TiaanViviers/cdc-lakehouse-lab/issues/<number>/dependencies/blocked_by --jq 'map(.number)'` for each issue, and `gh project item-list 3 --owner TiaanViviers --limit 100 --format json`. Compare title, labels, milestone, initial status and dependency relationships with the linked issues and registry.
+
+After this publication record is on main, verify that the eight Phase 1 prerequisites are still closed and Done. Close the Phase 1 milestone, then mark [1.9 (#27)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/27) complete last. The issue records the final links, checks and actual closing sequence.

@@ -1,6 +1,7 @@
 # ADR-002 — Gate Phase 2 on remote DuckPipe with a local DuckLake sink
 
-- **Status** Proposed, pending maintainer review of ticket 1.9
+- **Status** Accepted for the Phase 2 experiment order and disposable runtime design
+- **Approval** Maintainer approved [planning PR #37](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/37) on 2026-11-26. The remote CDC hypothesis awaits runtime evidence.
 - **Date** 2026-11-26
 - **Scope** Phase 2 experiment order and disposable runtime boundary
 - **Related research IDs** R01–R05, R08, R09, R13, R16
