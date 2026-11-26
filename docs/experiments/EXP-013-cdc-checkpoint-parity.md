@@ -2,10 +2,10 @@
 
 - **Date** 2026-11-26
 - **Research questions** R02, R03, R13
-- **Status** Offline checks passed. Build-specific validation awaits ticket 2.1.
+- **Status** Passed offline and on the selected build for the ticket 2.1 one-table scope.
 - **Operator** Codex
-- **Tested revision** `31c2889` on `d9de734a14ad33c75025cf564ada801461bde516`
-- **Software** CPython 3.12.3 and its standard library for offline checks. Source PostgreSQL 16.16 was verified in Phase 1. Consumer PG18.4 and bundled extensions are candidate versions from [EXP-010](EXP-010-phase-2-candidate-review.md).
+- **Tested revision** `759a4637d15e0db4da7afeaaff4c11fc17fd7b44` on `500c213`, including merged ticket 2.1.
+- **Software** CPython 3.12.3 and its standard library for offline checks. EXP-011 observed source PostgreSQL 16.16 and consumer PostgreSQL 18.4 with pg_duckdb 1.1.0, pg_ducklake 0.1.0, pg_duckpipe 1.0.0 and embedded DuckDB v1.5.1. [Observed versions and immutable image identities](EXP-011-remote-pg16-probe.md#actual-observations)
 
 ## Hypothesis
 
@@ -32,7 +32,8 @@ Reviewed on 2026-11-26. PostgreSQL 16 documents CSV and script-error handling in
 
 ```sh
 python3 --version
-python3 -m unittest discover -s tests/unit -p test_cdc_parity.py -v
+python3 -m unittest discover -s tests/unit -p 'test_cdc_parity*.py' -v
+sha256sum -c docs/experiments/evidence/EXP-011.sha256
 make test-unit
 make check BASE=origin/main
 sh tests/repository-checks.sh
@@ -45,7 +46,23 @@ The unit suite constructs its own synthetic read results from the workload's doc
 
 1. Use the confirmed 2.1 setup in its scheduled window, or use its reviewed, redacted mapped-table CSV and exact projected column types if the evidence captures equivalent reads. Save image and extension identities, read role, exact SQL, column types, mapping and the observed rows at initial copy, insert, update and delete. Record catalog snapshot attribution only when the row reads can be tied to it. If the available probe omits a required type, record that gap and coordinate a narrowly scoped follow-up trial.
 2. At each hold point use `read_projections(local_psql_command, {"probe": ((schema, table), columns, pk)}, 10)` on the actual mapped table. For replayed evidence, feed the actual psql CSV envelope through the same parsing path as the psql transport tests. Apply `normalize_rows("probe", capture.rows["probe"], columns, pk, integer_columns, timestamp_columns)` and use `tests.fixture_oracle.compare_rows` against the manually declared probe rows. Capture the same check at the source independently. Use separate phase and side labels in the evidence. Verify retained deletes and duplicates by key and confirm an intentionally wrong expected value emits a keyed diff.
-3. Record whether the target accepted the read-only transaction, the observed runtime type/UTC representations, any timeout behavior and applicable snapshot identity. Rebase to current main with the accepted prerequisite, rerun checks and record the tested SHA before opening the PR. Ticket 2.6 owns four-table runtime validation.
+3. For the live follow-up, stage the tested revision using the [EXP-011 guest procedure](../../tests/integration/remote-probe/README.md#run-in-the-guest). In the staged copy, apply the experiment bundle's `runner.patch` and place `probe_parity.py` at its root. The patch gives the run an EXP-013 and ticket 2.3 identity and runs the following at each passing native hold point before the writer resumes.
+
+   ```sh
+   python3 probe_parity.py "$label" "$source_id" "$consumer_id" | tee "$evidence/$label.parity"
+   ```
+
+   This invokes the parity adapter with a 5 s client/read budget on each side. In that same read-only transaction, it sends `SELECT current_setting('transaction_read_only'), current_setting('transaction_isolation')` to psql's stderr output before the bounded row projection. It independently checks each side against the manually declared probe rows.
+
+4. At initial copy, query `pg_attribute` with `pg_catalog.format_type(atttypid, atttypmod)` for the mapped relations and check both clients with `psql --version`. Run the target server timeout control with `psql -XwqAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f -`:
+
+   ```sql
+   BEGIN READ ONLY;
+   SET LOCAL statement_timeout = '100ms';
+   SELECT pg_sleep(2);
+   ```
+
+   Expect psql exit 3, SQLSTATE `57014` and implicit rollback on disconnect. At the final hold point deliberately compare target key 1 against its original value and record the resulting diff. Re-run the offline checks against current main. Ticket 2.6 owns four-table runtime validation.
 
 ## Expected results
 
@@ -53,7 +70,7 @@ S00–S06 produce empty diff lists on both sides. Altered rows produce phase- an
 
 ## Actual observations
 
-The isolated parity suite passed 14 tests and the full suite passed 38. Repository checks passed, including all five deliberately failing controls. The oracle and expected JSON had zero diff from main. In the offline poll example, source and first target captures held the pre-delete state, and the second target capture matched S03. Source stayed `mismatch`, target returned `pass`, and the combined result remained failed.
+The isolated parity suite passed 15 tests and the full suite passed 39. Repository checks passed, including all five deliberately failing controls. The oracle and expected JSON had zero diff from main. In the offline poll example, source and first target captures held the pre-delete state, and the second target capture matched S03. Source stayed `mismatch`, target returned `pass`, and the combined result remained failed.
 
 | Control | Observed example |
 | --- | --- |
@@ -68,10 +85,38 @@ The isolated parity suite passed 14 tests and the full suite passed 38. Reposito
 
 The offset forms `2026-01-01 02:30:00+02:30` and `2025-12-31 19:00:00-05:00` both normalized to `2026-01-01T00:00:00Z`. The SQL transport test asserted the emitted read-only transaction, four ordered limits, a 1,500 ms SQL timeout and the final rollback. An offline sleeping subprocess returned `psql client deadline expired` with a 100 ms client budget. A fake monotonic clock exercised a 1.25 s target deadline with attempt budgets of 1.25 s and 0.25 s, one full interval and one clipped wait. A result arriving at the deadline was rejected.
 
+### Selected-build replay
+
+The checksummed EXP-011 excerpt identifies `probe.items` mapped to `bronze.items` through the `ducklake` access method. The native read returned unaligned psql text with two fields. The replay uses those source and target field values unchanged, re-framed as CSV for the adapter. It compares against probe expectations declared independently of the captured data. The source DDL declares `id integer` and `value text`. The pinned target creator introspects the source column types and preserves both type names. It adds `_duckpipe_source` outside the business projection. [Native probe](../../tests/integration/remote-probe/run.sh) · [Pinned target DDL](https://github.com/relytcloud/pg_duckpipe/blob/86d5c248d80370fb2e10ddc1abd780fd94c3a52b/duckpipe-pg/src/api.rs#L903-L993) · [Pinned type mapping](https://github.com/relytcloud/pg_duckpipe/blob/86d5c248d80370fb2e10ddc1abd780fd94c3a52b/duckpipe-core/src/types.rs#L645-L650)
+
+| Hold point | Source and first passing target | Last failing target diff | Latest snapshot observed separately in EXP-011 |
+| --- | --- | --- | --- |
+| Initial | `(1, 'seed')` | `items: missing key id=1` | 2 |
+| Insert | `(1, 'seed'), (2, 'inserted')` | `items: missing key id=2` | 3 |
+| Update | `(1, 'updated'), (2, 'inserted')` | `items: unequal id=1 value: expected 'updated', got 'seed'` | 4 |
+| Delete | `(1, 'updated')` | `items: extra key id=2` | 5 |
+
+All eight passing reads produced zero differences. The four stale reads produced the differences above. Catalog observations followed the independent row reads, so the historical snapshot IDs remain contextual evidence. The replay carries no attributed snapshot ID. The selected probe covers integer and text. The v1 timestamp projection has offline UTC coverage. [EXP-011 guest observations](evidence/EXP-011-guest-observations.txt) · [Replay test](../../tests/unit/test_cdc_parity_exp011.py)
+
+### Disconnected guest follow-up
+
+Run `20261126T082754Z-p02-01` used the pinned EXP-011 images, a fresh two-vCPU, 2 GiB NIC-free guest overlay `guest-01.qcow2`, project `cdc23-20261126t082754z`, bridge `p23082754`, group `g23_20261126t082754z`, publication `pub23_20261126t082754z` and slot `slot23_20261126t082754z`. The existing isolated workload and limits were retained, including the 480 s overall deadline, 60 s per native checkpoint, 500 ms native polling, and 768 MiB source / 512 MiB consumer memory caps with zero swap. The source and consumer used distinct named volumes on the verified internal bridge without published ports.
+
+Source and target psql reported 16.16 and 18.4. `pg_attribute` returned `id|integer` and `value|text` for both relations, plus `_duckpipe_source|text` on the target. The adapter projected and normalized the two business columns. It matched all eight live source and target reads against the four independent probe expectations above. Both sessions reported `on,repeatable read` at every hold point. The target timeout control returned exit 3 and `ERROR:  57014`. The deliberately wrong expected value produced `delete target intentional mismatch: items: unequal id=1 value: expected 'seed', got 'updated'`.
+
+| Hold point | Native target first match UTC | Subsequent adapter source / target | Latest separate catalog sample |
+| --- | --- | --- | --- |
+| Initial | 08:28:31.727 | Pass / pass | 2 |
+| Insert | 08:28:38.847 | Pass / pass | 3 |
+| Update | 08:28:43.867 | Pass / pass | 4 |
+| Delete | 08:28:48.874 | Pass / pass | 5 |
+
+The four latest snapshot IDs were observed in separate catalog queries. The adapter sessions did not pin a DuckLake version, so their catalog snapshot fields were null. The inline catalog held table ID 2. The final native target checks confirmed key 2 absent and zero duplicate keys. Both services and project cleanup exited 0 with no OOM. Publisher cleanup returned `after|0|0|t|t` and the guest powered off after exporting evidence.
+
 ## Evidence artifacts
 
-The repository retains the [parity contract](../../scripts/cdc/parity/__init__.py), [psql adapter](../../scripts/cdc/parity/psql.py) and [offline test inputs and assertions](../../tests/unit/test_cdc_parity.py). The tables above summarize those offline observations. Selected-build evidence is pending.
+The repository retains the [parity contract](../../scripts/cdc/parity/__init__.py), [psql adapter](../../scripts/cdc/parity/psql.py) and [offline test inputs and assertions](../../tests/unit/test_cdc_parity.py). The run bundle is in ignored `artifacts/EXP-013/20261126T082754Z-p02-01/` in the ticket worktree. The redacted guest archive `evidence-01.tar.gz` has SHA-256 `99d4eb8b7554aab4f129afbe93ce42cdf0426341043e5204217f6453e56febec`. It contains the per-checkpoint `*.parity`, catalog and poll outputs, resource samples and cleanup evidence. The directory includes the staging patch and helper together with `SHA256SUMS`.
 
 ## Interpretation, limitations and follow-up
 
-Offline results establish independent snapshot and report comparison, bounded extraction at the reader boundary, and deadline and evidence handling. The SQL transaction assertion covered generated text. The subprocess timeout control exercised the local client boundary. Actual target SQL acceptance, server cancellation, mappings, rendered types and DuckLake snapshot semantics remain open pending [ticket 2.1](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/38). R02, R03 and R13 remain OPEN at their Phase 2 acceptance conditions. Ticket 2.9 owns reconciliation of the shared research register. [Ticket 2.3](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/40)
+The selected build supports the adapter's ordered read-only projection and integer/text normalization for the quiescent one-table probe. The live server timeout control and offline client deadline control exercised distinct timeout mechanisms. R02 and R03 now have independent adapter observations for the one-table initial copy and committed DML. The four-table fixture, live timestamp rendering, fault cases and an attributable cross-table cutoff remain open at the Phase 2 level. In particular R13 requires a separate visibility experiment. Ticket 2.9 owns reconciliation of the shared research register. [Ticket 2.3](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/40)
