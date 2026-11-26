@@ -36,7 +36,7 @@ Run `make help check BASE=origin/main`, `make test-unit`, and `sh tests/reposito
 
 ## Read-only operator walkthrough
 
-For a completed run, open `walkthrough.json` and find `read-only-S04` in `timeline.jsonl`. The capture runs after independently verified S04 and before consumer replacement, with later writes held. For live inspection use the IDs, group, slot and publication from the project's `runtime.json` in the isolated guest, with the source held at the same checkpoint. Set `run_id` to the run directory name.
+For a completed run, open `walkthrough.json` and find `read-only-S04` in `timeline.jsonl`. The capture runs after independently verified S04 and before consumer replacement, with later writes held. For live inspection, take the container IDs, source system identifier, group, slot and publication from `runtime.json`. Read the Compose project name and full bridge ID from `run.txt`, and set `run_id` to the run directory name. Use the isolated guest with the source held at the same checkpoint.
 
 1. Run the [walkthrough SQL](../tests/integration/cdc-gate/walkthrough.sql) against the publisher. It should show read-only mode, values for order 30, item 301 and payment 302, and absence of item 102. Use the S04 runner record to locate the committed XID.
 
