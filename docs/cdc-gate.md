@@ -1,6 +1,6 @@
-# Run the Phase 2 CDC gate
+# Verify Phase 2 CDC
 
-[Ticket 2.9 (#46)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) tests the pinned PostgreSQL 16.16 publisher and DuckPipe consumer with the local DuckLake sink. The gate uses the synthetic v1/42 fixture and independently checks both databases. See the [reviewed M2 decision and observations](experiments/EXP-020-phase-2-cdc-gate.md).
+[Ticket 2.9 (#46)](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) tests the pinned PostgreSQL 16.16 publisher and DuckPipe consumer with the local DuckLake sink. The paired subgate uses the synthetic v1/42 fixture and independently checks both databases. See the [M2 decision and observations](experiments/EXP-020-phase-2-cdc-gate.md).
 
 ## Schedule and stage
 
@@ -38,7 +38,7 @@ Run `make help check BASE=origin/main`, `make test-unit`, and `sh tests/reposito
 
 ## Review the full M2 decision
 
-Record the authoritative M2 decision in the experiment report after reviewing all mandatory evidence against [issue #46 and the approved gate](../backlog/phase-2.md#29-verify-the-complete-phase-2-cdc-gate). Record the tested revision and selected source, consumer and runner identities for the paired and auxiliary runs. Use the same tested configuration and pins for positive acceptance.
+Record the authoritative M2 decision in the experiment report after reviewing all mandatory evidence. For positive acceptance, require the same tested runtime revision and effective configuration across the paired and auxiliary runs, with the same selected image pins wherever each component is used. Record the revisions and artifact identities in the review. [Issue #46](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/46) · [Approved gate](../backlog/phase-2.md#29-verify-the-complete-phase-2-cdc-gate)
 
 1. Require a passing paired subgate with the exact S00–S05 rows and hashes, rollback exclusion, deleted-key absence, same-slot catch-up, continued apply after replacement, and verified teardown from both fresh projects. Inspect the measured retention and resource bounds alongside the keyed results.
 2. Require a separate positive [controlled COPY-overlap trial](../tests/integration/cdc-baseline/README.md#inspect). Match the same blocked COPY backend and temporary slot before and after the independently verified S01 source commit. After release, require exact source and target S01 within the deadline, the full item 102 update and subsequent delete back to exact S00, and clean teardown. A failed, missing or unwitnessed COPY result leaves M2 unmet.
