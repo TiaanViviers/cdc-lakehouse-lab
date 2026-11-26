@@ -57,7 +57,7 @@ rule() {
     else "$fw" "$action" DOCKER-USER -i "$bridge" ! -o "$bridge" -j DROP; fi
 }
 dispose() {
-    local id service volume ids volumes peers running fw chain
+    local id service volume ids volumes peers running networks fw chain
     ids=$(d ps -aq --no-trunc --filter "label=$label") || return 1
     for id in $ids; do
         service=$(d inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$id") || return 1
@@ -87,7 +87,8 @@ dispose() {
     [[ -z $ids && -z $volumes ]] || return 1
     d network rm "$SOURCE_INPUT_ID" || return 1
     [[ ! -e /sys/class/net/$bridge ]] || return 1
-    test -z "$(d network ls -q --filter "name=^${COMPOSE_PROJECT_NAME}-input$")" || return 1
+    networks=$(d network ls -q --filter "name=^${COMPOSE_PROJECT_NAME}-input$") || return 1
+    [[ -z $networks ]] || return 1
     for entry in "${rules[@]}"; do
         read -r fw chain <<< "$entry"
         rule -D "$fw" "$chain" || return 1

@@ -1,5 +1,6 @@
 """Compose the reviewed CDC checkpoint, recovery and visibility experiments."""
 
+from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,7 @@ import sys
 import time
 
 from scripts.cdc.wal.observe import DOCKER
-from scripts.isolation.preflight import check_firewall
+from scripts.isolation.preflight import check_firewall, host_control
 from tests.fixture_oracle import load_expectations
 
 HERE = Path(__file__).resolve().parent
@@ -96,6 +97,7 @@ class Gate(VisibilityExperiment, Recovery):
             awk '$2=="00000000" {bad=1} END {exit bad}' /proc/net/route
             awk '$2=="00" && $NF!="lo" {bad=1} END {exit bad}' /proc/net/ipv6_route
         """)
+        self.replacement_host_denial()
         require(self.group_state("replacement")["group"]["slot_name"] == self.slot, "replacement changed slot")
         self.quiescent_data("replacement-before-worker", "S04")
         after = self.slot_sample("replacement")["slot"]
@@ -106,6 +108,41 @@ class Gate(VisibilityExperiment, Recovery):
                    old=old_id, new=self.consumer_id, system_identifier=system, volume=self.original_volume)
         self.worker("replacement")
         self.resources("after-replacement")
+
+    def replacement_host_denial(self):
+        configurations = json.loads(self.docker("network", "inspect", "-f",
+                                                "{{json .IPAM.Config}}", self.bridge))
+        addresses = [network["Gateway"] for network in configurations]
+        require(len(addresses) == 2 and sum(":" in address for address in addresses) == 1,
+                "expected both bridge gateway families")
+        with ExitStack() as listeners:
+            for address in addresses:
+                port = host_control(listeners, address)
+                probe = subprocess.run(
+                    (*DOCKER, "exec", "--user", "postgres", self.consumer_id, "timeout", "2s",
+                     "bash", "-c", 'exec 3<>"/dev/tcp/$1/$2"', "bash", address, str(port)),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4,
+                )
+                require(probe.returncode == 124, "replacement consumer host access was not blocked")
+                self.event("replacement", "positive_guest_listener_denied_from_consumer", address=address)
+
+    def walkthrough(self):
+        label = "read-only-S04"
+        pg = self.wait_active(label, True)
+        status = self.group_state(label)
+        require(len(status["worker_pids"]) == 1 and status["group"]["slot_name"] == self.slot,
+                "walkthrough worker and publisher slot are not linked")
+        sql = HERE.joinpath("walkthrough.sql").read_text()
+        queries = {}
+        for schema, target in (("fixture", False), ("bronze", True)):
+            queries[schema] = self.sql(label, sql, target=target, variables=("-v", f"schema={schema}"))
+        capture = self.engine(label)
+        require(exact("S04", capture["rows"]), "walkthrough snapshot differs")
+        require(queries["fixture"] == queries["bronze"] and queries["bronze"].startswith("on\n"),
+                "target and source walkthrough projections differ")
+        self.save("walkthrough.json", dict(rows=queries, slot=pg["slot"], worker=status["worker_pids"],
+                  group=status["group"], tables=status["mappings"], snapshot_id=capture["snapshot_id"]))
+        self.event(label, "walkthrough_exact", snapshot_id=capture["snapshot_id"])
 
     def retention_control(self):
         # Three checkpoint epochs accelerate segment use while the same worker
@@ -119,11 +156,13 @@ class Gate(VisibilityExperiment, Recovery):
         require(settings == "16MB|128MB|0|off", "unexpected active retention settings")
         before = self.wait_active(label, True)
         previous = before
-        stagnant_epochs = []
+        status = self.group_state(label)
+        growth_epochs = []
         for epoch in range(1, 4):
             phase = f"{label}-{epoch}"
             require(previous["wal_bytes"]["insert_to_restart"] + 17 * MIB < 64 * MIB,
                     "active retention switch would exceed declared budget")
+            applied_before = {row["source_table"]: row["applied_lsn"] for row in status["mappings"]}
             self.touch(phase, """
                 UPDATE fixture.orders SET status=status WHERE order_id=30 RETURNING order_id;
                 UPDATE fixture.order_items SET quantity=quantity WHERE item_id=301 RETURNING item_id;
@@ -134,8 +173,12 @@ class Gate(VisibilityExperiment, Recovery):
             while time.monotonic() < deadline:
                 status = self.group_state(phase)
                 changed = [row for row in status["mappings"] if row["source_table"] != "fixture.customers"]
-                if all(row["applied_lsn"] and lsn(row["applied_lsn"]) >
-                       lsn(previous["positions"]["insert_lsn"]) for row in changed):
+                if len(changed) == 3 and all(
+                    row["queued_changes"] == 0 and row["applied_lsn"]
+                    and lsn(row["applied_lsn"]) >= lsn(previous["positions"]["insert_lsn"])
+                    and lsn(row["applied_lsn"]) > lsn(applied_before[row["source_table"]])
+                    for row in changed
+                ):
                     break
                 time.sleep(.5)
             else:
@@ -145,9 +188,8 @@ class Gate(VisibilityExperiment, Recovery):
             require(slot["active"] and slot["active_pid"] == before["slot"]["active_pid"]
                     and after["wal_bytes"]["insert_to_restart"] < 64 * MIB
                     and slot["safe_wal_size"] > 0, "active-retention isolation or WAL budget")
-            stagnant_epochs.append(
-                all(slot[key] == previous["slot"][key] for key in ("confirmed_flush_lsn", "restart_lsn"))
-                and after["wal_bytes"]["insert_to_restart"] > previous["wal_bytes"]["insert_to_restart"]
+            growth_epochs.append(
+                after["wal_bytes"]["insert_to_restart"] > previous["wal_bytes"]["insert_to_restart"]
                 and slot["safe_wal_size"] < previous["slot"]["safe_wal_size"]
             )
             self.resources(phase)
@@ -155,9 +197,9 @@ class Gate(VisibilityExperiment, Recovery):
         self.checkpoint("after-active-sparse", "S05")
         result = dict(
             progress_observed=lsn(previous["slot"]["confirmed_flush_lsn"]) > lsn(before["slot"]["confirmed_flush_lsn"]),
-            persistent_growth=all(stagnant_epochs),
+            persistent_growth=all(growth_epochs),
         )
-        self.event(label, "retention_decision", epochs=stagnant_epochs, **result)
+        self.event(label, "retention_decision", epochs=growth_epochs, **result)
         return result
 
     def file_control(self):
@@ -199,6 +241,7 @@ class Gate(VisibilityExperiment, Recovery):
                 "aborted S04 affected a retained version")
         self.s04(False)
         self.checkpoint("S04", "S04")
+        self.walkthrough()
         self.catalog_before_replacement = catalog(self.consumer_id)
         self.save("before-replacement-catalog.json", self.catalog_before_replacement)
         self.replace_consumer()
