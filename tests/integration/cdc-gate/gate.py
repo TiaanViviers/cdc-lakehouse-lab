@@ -150,6 +150,7 @@ class Gate(VisibilityExperiment, Recovery):
         self.save("walkthrough.json", dict(rows=queries, slot=pg["slot"], worker=status["worker_pids"],
                   group=status["group"], tables=status["mappings"], snapshot_id=capture["snapshot_id"]))
         self.event(label, "walkthrough_exact", snapshot_id=capture["snapshot_id"])
+        self.s04_snapshot = capture["snapshot_id"]
 
     def retention_control(self):
         # Three checkpoint epochs accelerate segment use while the same worker
@@ -229,14 +230,23 @@ class Gate(VisibilityExperiment, Recovery):
         flushed = catalog(self.consumer_id)
         self.save("file-catalog.json", flushed)
         table_id = next(row["table_id"] for row in flushed["tables"] if row["table_name"] == "order_items")
-        files = flushed["data_files"]
-        require(files and all(row["magic"] == "PAR1" and row["table_id"] == table_id for row in files)
-                and sum(row["record_count"] for row in files) == len(load_expectations()["S05"]["order_items"])
-                and not flushed["delete_files"], "scoped DuckLake Parquet reference check failed")
+        files, deletes = flushed["data_files"], flushed["delete_files"]
+        require(files and deletes and all(row["magic"] == "PAR1" and row["table_id"] == table_id
+                                         for row in files + deletes),
+                "scoped DuckLake Parquet references missing or out of scope")
+        # The pinned flush moves historical rows as well and writes their
+        # snapshot-qualified deletions. Live rows are checked separately below.
+        written = sum(row["record_count"] for row in files)
+        deleted = sum(row["record_count"] for row in deletes)
+        require(written - deleted == len(load_expectations()["S05"]["order_items"]),
+                "file metadata and expected live order-item count differ")
         self.quiescent_data("file-quiescent", "S05", disabled=True)
+        historic = self.engine("file-backed-S04", version=self.s04_snapshot)
+        require(exact("S04", historic["rows"]), "scoped flush changed retained S04")
         self.resources("after-file-control")
         self.event("catalog", "layer_and_files_verified", format="0.4", inlined_tables=len(initial["inline_tables"]),
-                   physical_files=len(files))
+                   data_files=len(files), delete_files=len(deletes), rows_in_data_files=written,
+                   deletion_positions=deleted, retained_s04=self.s04_snapshot)
 
     def run(self):
         self.before_fault()
