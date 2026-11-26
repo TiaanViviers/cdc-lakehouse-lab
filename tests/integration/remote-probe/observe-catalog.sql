@@ -19,4 +19,7 @@ SELECT 'delete_file', table_id, data_file_id, begin_snapshot, end_snapshot, path
 FROM ducklake.ducklake_delete_file ORDER BY delete_file_id LIMIT 20;
 SELECT 'inline_table', table_id, table_name, schema_version
 FROM ducklake.ducklake_inlined_data_tables ORDER BY table_id LIMIT 20;
+SELECT format('SELECT %L, %s, count(*) FROM ducklake.%I', 'inline_rows', table_id, table_name)
+FROM ducklake.ducklake_inlined_data_tables ORDER BY table_id LIMIT 20
+\gexec
 \endif

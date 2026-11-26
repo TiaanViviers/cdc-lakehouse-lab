@@ -4,7 +4,7 @@ FROM duckpipe.groups();
 SELECT 'checkpoint', name, confirmed_lsn FROM duckpipe.sync_groups;
 SELECT 'mapping_lsn', id, snapshot_lsn, applied_lsn FROM duckpipe.table_mappings ORDER BY id;
 SELECT 'table', sync_group, source_table, target_table, state, rows_synced,
-       queued_changes, consecutive_failures, error_message IS NOT NULL,
+       queued_changes, consecutive_failures, nullif(error_message, '') IS NOT NULL,
        applied_lsn, snapshot_rows, snapshot_duration_ms
 FROM duckpipe.status();
 SELECT 'worker', * FROM duckpipe.worker_status();

@@ -97,7 +97,8 @@ resources() {
             path=/var/lib/postgresql
             du -sk /tmp
         fi
-        du -sk "$path" "$PGDATA/pg_wal"
+        du -sk "$path"
+        du -sk "$PGDATA/pg_wal"
         df -Pk "$PGDATA"
         test "$(du -sk "$path" | cut -f1)" -lt 524288
         test "$(du -sk "$PGDATA/pg_wal" | cut -f1)" -lt 262144
@@ -458,7 +459,7 @@ echo "Commit delete"
 source_sql -c 'BEGIN; DELETE FROM probe.items WHERE id = 2; COMMIT;'
 checkpoint delete '1|updated'
 
-consumer_sql -c "SELECT 'deleted_absent', NOT EXISTS (SELECT FROM bronze.items WHERE id=2);
+consumer_sql -c "SELECT 'deleted_absent', NOT EXISTS (SELECT 1 FROM bronze.items WHERE id=2);
 SELECT 'duplicate_keys', count(*) FROM (SELECT id FROM bronze.items GROUP BY id HAVING count(*) > 1) AS duplicates;" |
     tee "$evidence/final-keys.txt"
 grep -Fxq 'deleted_absent|t' "$evidence/final-keys.txt"
