@@ -37,7 +37,7 @@ Phase 0 requires reviewed documentation, version provenance and repository check
 
 - **M0:** Documentation reviewed; upstream version/edition matrix, licence constraints and safe Docker baseline agreed.
 - **M1:** Deterministic source scenarios reproduce exact intended states; inspect SQL and bounded WAL settings on the isolated source. Phase 2 establishes publications, slots and consumer behavior.
-- **M2:** DuckPipe remote source snapshot + insert/update/delete reliably converge in a simplest supported local sink.
+- **M2:** DuckPipe remote initial copy and committed inserts, updates and deletes converge exactly in the simplest supported local DuckLake sink. Verify rollback exclusion and same-slot recovery within declared WAL, disk and time bounds. Record actual catalog format and observed multi-table visibility limits. See the [verification protocol](verification-plan.md#phase-gate-checklist).
 - **M3:** Catalog + S3-compatible Parquet representation independently queryable by DuckDB, with snapshots and recovery documented.
 - **M4:** Windmill transformation chain works on exact DuckPipe-maintained lake; compare Pipelines/Flows and document external asset triggers.
 - **M5:** Dedicated logical query service gives correct Gold results to ordinary PostgreSQL client, with basic auth/isolation and measured concurrency.

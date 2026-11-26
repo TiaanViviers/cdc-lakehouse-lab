@@ -4,7 +4,7 @@ A deliberately lightweight workflow for **one maintainer plus coding agents**.
 
 ## Configured GitHub resources
 
-On 2026-11-24, the [CDC Lakehouse Lab Project](https://github.com/users/TiaanViviers/projects/3) was linked to this repository. Its Board view groups by Status, with **Backlog**, **Ready**, **In Progress**, and **Done** in that order. The open [Phase 0 — Foundation milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/1) has no deadline. The seven labels below exist; `bug` was reused. GitHub's other pre-existing default labels remain, but are not part of this workflow.
+On 2026-11-24, the [CDC Lakehouse Lab Project](https://github.com/users/TiaanViviers/projects/3) was linked to this repository. Its Board view groups by Status, with **Backlog**, **Ready**, **In Progress**, and **Done** in that order. The initial [Phase 0 — Foundation milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/1) was closed during the Phase 1 transition. The [Phase 1 — Operational Source Simulator milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/2) is current as of the [1.9 review](phase-1-closeout.md). The seven labels below exist, including the pre-existing `bug` label. GitHub's other pre-existing default labels remain, but are not part of this workflow.
 
 To add an approved issue, open it on GitHub and select the Project in its **Projects** sidebar, then set Status to Ready or Backlog. Alternatively, run `gh project item-add 3 --owner TiaanViviers --url <issue-url>` and set its Status on the board. Project access through `gh` requires the `project` authentication scope. No manual board setup remains.
 

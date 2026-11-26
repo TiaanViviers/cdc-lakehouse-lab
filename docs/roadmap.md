@@ -6,7 +6,7 @@ This is a **dependency order**, not evidence that any component works. The full 
 | --- | --- | --- | --- |
 | **0** | Research / repository foundation | Docs, ADRs, compatibility matrix, local runtime conventions | Architecture and version assumptions reviewed |
 | **1** | Operational source simulator | Isolated PG16, bounded WAL settings, deterministic Python generator and SQL inspection | Exact S00–S06 rows and aggregates, transaction and retry evidence, source inspection |
-| **2** | DuckPipe CDC | Remote logical source, CDC worker, initial snapshots / WAL slots | Snapshot and ongoing CDC row-level correctness |
+| **2** | DuckPipe CDC | Remote logical source, CDC worker, local DuckLake, publication and slots | Exact snapshot and ongoing rows, bounded restart and WAL recovery, measured visibility limits |
 | **3** | DuckLake catalog / object storage | PG metadata, S3-compatible Parquet, independent DuckDB reader | Same catalog/files yield correct independent queries |
 | **4** | Windmill transformation engine | Server, queue PG, workers, DuckDB, Flows/Pipelines, Silver/Gold | Complete Bronze → Gold transformation with dependencies |
 | **5** | Reporting SQL serving | Independent PG-compatible SQL endpoint using pg_ducklake candidate; catalog + S3 Gold access | SQL clients query correct Gold, with measured concurrency/failures |
@@ -29,8 +29,8 @@ Operational Phase 6 requires the source (phase 1), durable worker orchestration 
 ## Phase records and later research areas
 
 - **Phase 0:** see the [closeout and approval gate](phase-0-closeout.md).
-- **Phase 1:** see the [published source simulator backlog](../backlog/phase-1.md).
-- **Phase 2:** remote DuckPipe, publication and slots on the Phase 1 source baseline, snapshot parity, LSN/slot observation and stop/restart scenario.
+- **Phase 1:** technical source gate met. The milestone handover is pending review and publication. See the [closeout](phase-1-closeout.md) and [source simulator backlog](../backlog/phase-1.md).
+- **Phase 2:** the proposed first gate is remote PG16 snapshot and DML through the pinned DuckPipe build into local DuckLake. Follow with exact fixture parity, WAL/slot observations, restart with bounded retention, and multi-table visibility. See the [draft backlog](../backlog/phase-2.md).
 - **Phase 3:** local S3-compatible bucket, catalog metadata, independent DuckDB, Parquet objects/snapshots, multi-writer unknowns.
 - **Phase 4:** Windmill runtime + one worker, read Bronze, Silver SQL, Gold Reporting/ML, Pipelines dependency experiments, readiness checks.
 - **Phase 5:** separate SQL-serving container/PG extension, remote catalog access, S3 Gold read, read-only roles, concurrent query benchmark, restart.
