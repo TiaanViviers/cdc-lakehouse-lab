@@ -70,7 +70,11 @@ report_retained() {
         echo 'Project volumes could not be inspected'
     d network ls --no-trunc --filter "name=^${COMPOSE_PROJECT_NAME}-input$" --format 'network={{.ID}} name={{.Name}}' ||
         echo 'Project network could not be inspected'
-    if [[ -e /sys/class/net/$bridge ]]; then echo "bridge=$bridge present"; fi
+    if [[ -e /sys/class/net/$bridge ]]; then
+        echo "bridge=$bridge present"
+        d network inspect -f '{{range $id, $peer := .Containers}}{{println "endpoint=" $id $peer.Name}}{{end}}' "$SOURCE_INPUT_ID" ||
+            echo 'Bridge endpoints could not be inspected'
+    fi
     for rule in "${firewall_rules[@]}"; do
         if firewall_rule -C "$rule"; then
             echo "rule=$rule bridge=$bridge present"
@@ -101,7 +105,9 @@ cleanup_runtime() {
         fi
     done
     # The only allowed live endpoints are the owned, running project containers.
-    peers=$(d network inspect -f '{{range $id, $_ := .Containers}}{{println $id}}{{end}}' "$SOURCE_INPUT_ID" | sort) ||
+    # Docker adds a trailing newline to the formatted output. Discard blank rows
+    # before sorting, so the two inventories compare their endpoint IDs only.
+    peers=$(d network inspect -f '{{range $id, $_ := .Containers}}{{println $id}}{{end}}' "$SOURCE_INPUT_ID" | awk 'NF' | sort) ||
         { report_retained 'bridge inventory'; return 1; }
     running=$(d ps -q --no-trunc --filter "label=$project_label" | sort) ||
         { report_retained 'running container inventory'; return 1; }
