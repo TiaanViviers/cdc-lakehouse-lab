@@ -195,3 +195,64 @@ consumer status query failed
 
 Guest console: EXP015_RESULT=0
 Guest power-down observed.
+
+=== Attempt 03: bridge ownership refusal ===
+owner=2.5/Codex ticket=42 run=20261126t084931z-41f2 revision=40e3bbbf35e5782d337807c04780ae7d8b6b57c7 overlay=guest-03.qcow2 project=cdc25-20261126t084931z-41f2 bridge=p2508493141f2 database=source_lab consumer_db=postgres group=g25_20261126t084931z_41f2 publication=p25_20261126t084931z_41f2 slot=s25_20261126t084931z_41f2
+Teardown incomplete at bridge ownership. Remaining assets for cdc25-20261126t084931z-41f2:
+container=97568ac990499b487cb0d96a5a10b08695cada70262abda89e1c6757d71ca86b name=cdc25-20261126t084931z-41f2-cdc-catalog-1 status=Up 4 seconds (healthy)
+container=636eba65e3ebf1745723bbb2346fed4d570e18860defde928704e4e19175cb49 name=cdc25-20261126t084931z-41f2-source-db-1 status=Up About a minute (healthy)
+volume=cdc25-20261126t084931z-41f2_cdc-pg
+volume=cdc25-20261126t084931z-41f2_source-pg
+network=32eeb78eeaaa95bd9c6bc8abc7dbab7b5ebba32a307205d7ebf8805893cf9878 name=cdc25-20261126t084931z-41f2-input
+bridge=p2508493141f2 present
+rule=iptables INPUT bridge=p2508493141f2 present
+rule=iptables DOCKER-USER bridge=p2508493141f2 present
+rule=ip6tables INPUT bridge=p2508493141f2 present
+rule=ip6tables DOCKER-USER bridge=p2508493141f2 present
+Guest console: EXP015_RESULT=1
+
+=== Attempt 04: teardown failure control and checked retry ===
+owner=2.5/Codex ticket=42 run=20261126t085149z-50b1 revision=0db3e925b25bd46816f68c3c075300206d85e571 overlay=guest-04.qcow2 project=cdc25-20261126t085149z-50b1 bridge=p2508514950b1 database=source_lab consumer_db=postgres group=g25_20261126t085149z_50b1 publication=p25_20261126t085149z_50b1 slot=s25_20261126t085149z_50b1
+Injected Compose stop failure for cdc-catalog
+Teardown incomplete at consumer stop. Remaining assets for cdc25-20261126t085149z-50b1:
+container=c0eb4df64aedef0e1eb6d6a83df3338bbe982cdd2c274ca30b1527f0f8e32465 name=cdc25-20261126t085149z-50b1-cdc-catalog-1 status=Up 4 seconds (healthy)
+container=f7e6ae75775879f635919eaa61b74a9fe6abe98b6ab245de568ec4abbca784a4 name=cdc25-20261126t085149z-50b1-source-db-1 status=Up About a minute (healthy)
+volume=cdc25-20261126t085149z-50b1_cdc-pg
+volume=cdc25-20261126t085149z-50b1_source-pg
+network=dedccdc284065867f198ed74e3ea3d0546ea00652ac546fc9cc1bcc9661985f7 name=cdc25-20261126t085149z-50b1-input
+bridge=p2508514950b1 present
+endpoint= c0eb4df64aedef0e1eb6d6a83df3338bbe982cdd2c274ca30b1527f0f8e32465 cdc25-20261126t085149z-50b1-cdc-catalog-1
+endpoint= f7e6ae75775879f635919eaa61b74a9fe6abe98b6ab245de568ec4abbca784a4 cdc25-20261126t085149z-50b1-source-db-1
+
+rule=iptables INPUT bridge=p2508514950b1 present
+rule=iptables DOCKER-USER bridge=p2508514950b1 present
+rule=ip6tables INPUT bridge=p2508514950b1 present
+rule=ip6tables DOCKER-USER bridge=p2508514950b1 present
+Failed teardown: dual-stack INPUT and forwarding rule order verified
+Host positive 172.18.0.1: expected marker
+Failed teardown: consumer host connection denied at 172.18.0.1
+Host positive fdfa:653f:4c09::1: expected marker
+Failed teardown: consumer host connection denied at fdfa:653f:4c09::1
+EXP-015 ACCEPTANCE CHECKS PASSED
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopping
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopped
+cdc-catalog stop: exited 0 false
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopped
+source-db stop: exited 0 false
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopped
+ Container cdc25-20261126t085149z-50b1-source-db-1  Removing
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopped
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Removing
+ Container cdc25-20261126t085149z-50b1-source-db-1  Removed
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Removed
+ Volume cdc25-20261126t085149z-50b1_cdc-pg  Removing
+ Volume cdc25-20261126t085149z-50b1_source-pg  Removing
+ Volume cdc25-20261126t085149z-50b1_cdc-pg  Removed
+ Volume cdc25-20261126t085149z-50b1_source-pg  Removed
+dedccdc284065867f198ed74e3ea3d0546ea00652ac546fc9cc1bcc9661985f7
+Project containers, volumes, bridge and firewall rules removed
+project_cleanup_exit=0
+Guest console: EXP015_RESULT=0
