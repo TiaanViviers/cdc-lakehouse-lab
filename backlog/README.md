@@ -6,6 +6,7 @@ The approved [numbering policy](../docs/issue-conventions.md) is `1.12 Implement
 
 - [Phase 0 — Foundation](phase-0.md) is published. The [closeout and approval gate](../docs/phase-0-closeout.md) records the handover status.
 - [Phase 1 — Operational Source Simulator](phase-1.md) is published. The registry maps its stable IDs to GitHub issues.
+- [Phase 2 — DuckPipe CDC](phase-2.md) is proposed for review. Its reserved IDs have no GitHub issue numbers.
 
 Populate the registry in a reviewed backlog-planning PR before issue creation. After publication update `github_issue` and `status`. Never recycle used IDs.
 

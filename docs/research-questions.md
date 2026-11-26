@@ -10,9 +10,7 @@ Ticket 0.1 documented remote-source registration (R01), the catalog and object-s
 
 Ticket 0.2 specifies proposed local boundaries and validation for R07 and R15 in the [local runtime design](local-runtime-design.md). Both remain **OPEN**: neither S3 client behavior nor the metadata, Parquet and compute paths have been observed in the lab.
 
-[Phase 0 closeout](phase-0-closeout.md) confirms that the fixture (R02, R03, R13) and verification protocol are specified. Phase 1 can add source-side observations of commits, overlap, replay and inspectability, and record effective WAL configuration. The downstream claims in R01–R05, R13, R16 and R25 require evidence beyond the source. **All R01–R28 remain OPEN at their full acceptance conditions.** Record partial evidence with the relevant question before changing its status.
-
-Ticket 1.2 verified the PostgreSQL 16.16 publisher baseline for R01, R04 and R05. In the disconnected VM the actual bridge passed the 1.1 preflight, the peer authenticated over TCP, and a sentinel survived container recreation. Effective logical WAL settings, empty publication and slot catalogs, and the measured WAL directory footprint establish the starting point for Phase 2. All three questions remain **OPEN** pending the remote replication, acknowledgement and recovery experiments. [EXP-004](experiments/EXP-004-source-profile.md)
+[Phase 0 closeout](phase-0-closeout.md) specifies the fixture and verification protocol. **All R01–R28 remain OPEN at their full acceptance conditions after the Phase 1 closeout.** Record partial evidence with the relevant question before changing its status.
 
 | ID | Question | Experiment / evidence | Acceptance condition |
 | --- | --- | --- | --- |
@@ -47,25 +45,29 @@ Ticket 1.2 verified the PostgreSQL 16.16 publisher baseline for R01, R04 and R05
 
 ## Phase 1 source evidence
 
+[Phase 1 closeout](phase-1-closeout.md) verifies the technical source gate. The bare-workstation preflight blocked startup and the disconnected guest passed on the actual bridge after both firewall rule families were installed. Stock PostgreSQL 16.16 exposed bounded logical WAL and an empty publication and slot baseline. A scoped peer authenticated via SCRAM and a sentinel survived source container recreation. This is source evidence for R01, R04, R05 and R16. [EXP-002](experiments/EXP-002-source-isolation.md) · [EXP-004](experiments/EXP-004-source-profile.md)
+
 [Ticket 1.4](experiments/EXP-003-fixture-oracle.md) validated the offline expected rows, both customer aggregates and mismatch detection for R02, R03 and R13. The three questions remain **OPEN**. Initial snapshot parity, applied changes and cross-table visibility still require observations of the source and downstream systems.
 
 [Ticket 1.3](experiments/EXP-005-source-schema.md) verified source schema and grants, preservation on repeat bootstrap, and guarded cleanup and rollback on PostgreSQL 16.16 in the isolated ticket 1.2 environment. R02, R03 and R13 remain **OPEN** pending workload execution and downstream comparisons.
 
 [Ticket 1.5](experiments/EXP-006-source-runner.md) exercises S00–S04 against the independent row and report oracle. This provides a verified S00 source baseline for R02 and source-side evidence of inserts, updates and deletion for R03. A separate reader observed the S04 business rows and receipt together after commit and exact S03 before commit and after forced rollback (R13). The same receipt persisted across a clean source restart (R25). All four remain **OPEN** at their full acceptance conditions. The next measurements include downstream parity and cutoff behavior and ambiguous-outcome replay.
 
+Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent source session while two disjoint PostgreSQL transactions followed a bounded A-before-B commit schedule. A pre-commit timeout preserved S04, and a fault after A committed left exact A-only state. Reset and replay from fresh S04 reproduced S05. R03 and R13 remain **OPEN** at their downstream acceptance conditions. [S05 experiment](experiments/EXP-016-source-overlap.md)
+
 [Ticket 1.7](experiments/EXP-008-source-replay.md) verified source-side S04 receipt replay, including runner loss before and after commit, overlapping delivery, payload mismatch and an unavailable receipt lookup. All ordered row, timestamp, report and receipt comparisons matched the independent expectations. R03 and R25 remain **OPEN** at full scope. Phase 6 owns operational write-back evidence.
 
 [Ticket 1.8](experiments/EXP-009-phase-1-source-gate.md) reproduced the complete technical source gate on three fresh isolated PostgreSQL volumes, including a repeat after the preceding guests shut down. R02 gains an exact seeded source baseline. R03 gains independent keyed parity through inserts, updates, deletion, overlap and replay. R04 and R05 gain bounded WAL settings, labeled publisher observations and a confirmed empty replication baseline. R13 gains S04 atomic visibility and the ordered S05 intermediate states. R16 gains a reproducible read-only S04 and receipt walkthrough. R25 gains repeated single-effect fixture replay and explicit unknown outcomes. **All seven research questions remain OPEN** at their full acceptance conditions, including downstream snapshot parity, slot acknowledgement and retention, consumer recovery, lake cutoffs, end-to-end inspection and operational write-back.
+
+## Phase 2 source and artifact review
+
+[EXP-010](experiments/EXP-010-phase-2-candidate-review.md) confirms the pinned transport requests PG16-supported pgoutput protocol 1, and that remote onboarding creates and changes source objects. The upstream loopback coverage skips snapshot and update/delete. R01–R05 remain **OPEN** for TCP/SCRAM capture, snapshot/WAL correctness, applied DML, feedback semantics and bounded restart. R13 remains **OPEN** for actual multi-table snapshots and apply visibility. A pinned initializer expects format 0.4, while actual format, durable local files, external catalog and reader compatibility remain unverified for R06, R08 and R09. R16 remains open for the broader walkthrough, and R25 for operational write-back.
 
 ## Research priorities
 
 Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six remain **OPEN**. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
 
-First gate: R01–R05. Then R06–R09. Windmill integration R10–R12 only after independent lake access. Later R13–R16; reporting R17–R21 follows Gold readiness; operational R22–R28 follows worker/source foundations. Findings may force a change of stack; write an ADR rather than hiding it.
-
-## Phase 1 S05 source evidence
-
-Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent source session while two disjoint PostgreSQL transactions followed a bounded A-before-B commit schedule. A pre-commit timeout preserved S04, and a fault after A committed left exact A-only state. Reset and replay from fresh S04 reproduced S05. R03 and R13 remain **OPEN** at their downstream acceptance conditions. [S05 experiment](experiments/EXP-016-source-overlap.md)
+Phase 2 starts with the remote compatibility probe (R01) and continues with snapshot, DML, feedback, recovery and visibility (R02–R05, R13, R16). Phase 3 tests catalog, S3 and independent lake access (R06–R09). Windmill integration follows independent lake access. Reporting follows Gold readiness, and the operational path follows worker and source foundations. Use reviewed evidence and an ADR if findings require a stack change.
 
 ## Explicit hypotheses
 
@@ -78,5 +80,3 @@ Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent sou
 - **H7:** A durable request PostgreSQL and separate S3 artifact bucket can support delayed, idempotent source write-back without maintaining a bidirectionally replicated operational database.
 
 These are hypotheses, not results.
-
-R01 and R16 remain **OPEN**. The [source preflight](experiments/EXP-002-source-isolation.md) blocked startup on the bare workstation and passed on the dedicated VM with verified guest rules. Withholding one IPv6 forwarding rule blocked the startup sentinel. The actual source-profile networks require a fresh gate in 1.2.

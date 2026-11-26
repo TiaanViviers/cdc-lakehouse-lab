@@ -82,7 +82,7 @@ flowchart TB
 
 ## DuckPipe and catalog
 
-DuckPipe's extension-based implementation needs a compatible PostgreSQL host but can ingest from a **remote** PostgreSQL source, so it does not belong on production. For initial tests, colocate DuckPipe, pg_ducklake and catalog metadata on one host. A separate catalog PostgreSQL/RDS design requires proof. Do not install unsupported custom extensions inside a managed RDS instance merely because RDS can store DuckLake metadata.
+The extension-based candidate documents remote ingestion. Phase 2 must verify this path against a separate stock PostgreSQL 16.16 publisher. The proposed probe colocates DuckPipe, pg_ducklake and metadata on the consumer PostgreSQL and uses persistent local table data. Phase 3 covers object storage and independent reads. A separate catalog PostgreSQL or RDS deployment needs its own compatibility evidence. Catalog hosting and extension hosting have different requirements. [Pinned candidate review](experiments/EXP-010-phase-2-candidate-review.md) · [Proposed ADR-002](decisions/ADR-002-phase-2-local-cdc-probe.md)
 
 A DuckLake catalog maps tables/snapshots to Parquet files. DuckDB computation happens in external processes (e.g. Windmill workers), not inside the S3 bucket.
 
@@ -102,9 +102,9 @@ The request PostgreSQL stores accepted jobs, idempotency keys, status/progress a
 
 The source transaction must record a durable unique request/batch receipt atomically with its business writes so crash-after-commit retries are safe. Request store state may lag; reconcile from operational receipts. If source is unavailable, jobs may reach PENDING_COMMIT, but are **not operationally valid** until source commits. Do not use DuckPipe in reverse. After successful commit, ordinary source CDC reflects results into the lake. See [async-processing contract](async-processing.md).
 
-## Phase 0 evidence and first implementation slice
+## Implemented source boundary
 
-The [Phase 0 closeout](phase-0-closeout.md) records reviewed designs, version candidates and repository checks. The first implementation slice is the isolated PostgreSQL source simulator, with its own source volume, synthetic workload and direct SQL inspection. [ADR-001](decisions/ADR-001-phase-1-source-baseline.md) specifies a bounded logical-WAL configuration baseline for Phase 1. The remote consumer, publication and slots enter in Phase 2. Proof of the listed downstream integrations remains open.
+The isolated PostgreSQL source simulator passed the Phase 1 technical gate with its own source volume, exact v1 fixture checkpoints and direct SQL inspection. [ADR-001](decisions/ADR-001-phase-1-source-baseline.md) establishes the bounded logical-WAL configuration and a zero-publication/zero-slot starting point. The Phase 1 receipt is source-local. The next experiment adds the remote consumer, a scoped publication and slot, and verifies independent target rows. [Phase 0 closeout](phase-0-closeout.md) · [Phase 1 closeout](phase-1-closeout.md)
 
 ## Integration risks to test
 
