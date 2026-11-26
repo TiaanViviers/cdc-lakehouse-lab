@@ -430,14 +430,15 @@ class Recovery(Experiment):
         require(self.consumer_id != old_id and volume != self.original_volume and system != self.consumer_system,
                 "consumer resnapshot did not start from a fresh volume")
         empty = self.sql("fresh catalog inventory", """
-            SELECT (SELECT count(*) FROM duckpipe.sync_groups),
-                   (SELECT count(*) FROM duckpipe.table_mappings),
+            SELECT name, publication, slot_name, conninfo IS NULL, confirmed_lsn IS NULL
+            FROM duckpipe.sync_groups ORDER BY name LIMIT 2;
+            SELECT (SELECT count(*) FROM duckpipe.table_mappings),
                    (SELECT count(*) FROM pg_class
-                    WHERE relnamespace=to_regnamespace('bronze') AND relkind IN ('r','p','v','m','f')),
-                   to_regnamespace('bronze') IS NOT NULL;
+                    WHERE relnamespace=to_regnamespace('bronze') AND relkind IN ('r','p','v','m','f'));
         """, target=True)
-        self.event("resnapshot", "fresh_catalog_inventory", groups_mappings_relations_and_namespace=empty)
-        require(empty.split("|")[:3] == ["0", "0", "0"], "consumer catalog contains prior state")
+        self.event("resnapshot", "fresh_catalog_inventory", inventory=empty)
+        require(empty == "default|duckpipe_pub_postgres|duckpipe_slot_postgres|t|t\n0|0",
+                "fresh catalog lacks the exact extension bootstrap inventory")
         self.event("resnapshot", "fresh_consumer", system_identifier=system, volume=volume, container=self.consumer_id)
         self.controller("elevate", self.oid)
         self.controller("enable-login", self.oid)
