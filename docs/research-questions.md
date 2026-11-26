@@ -61,11 +61,28 @@ Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent sou
 
 ## Phase 2 source and artifact review
 
-[EXP-010](experiments/EXP-010-phase-2-candidate-review.md) confirms the pinned transport requests PG16-supported pgoutput protocol 1, and that remote onboarding creates and changes source objects. The upstream loopback coverage skips snapshot and update/delete. R01–R05 remain **OPEN** for TCP/SCRAM capture, snapshot/WAL correctness, applied DML, feedback semantics and bounded restart. R13 remains **OPEN** for actual multi-table snapshots and apply visibility. A pinned initializer expects format 0.4, while actual format, durable local files, external catalog and reader compatibility remain unverified for R06, R08 and R09. R16 remains open for the broader walkthrough, and R25 for operational write-back.
+[EXP-010](experiments/EXP-010-phase-2-candidate-review.md) confirms the pinned transport requests PG16-supported pgoutput protocol 1, and that remote onboarding creates and changes source objects. The upstream loopback coverage skips snapshot and update/delete. R01–R05 remain **OPEN** for TCP/SCRAM capture, snapshot/WAL correctness, applied DML, feedback semantics and bounded restart. R13 remains **OPEN** for actual multi-table snapshots and apply visibility. A pinned initializer expects format 0.4, while actual format, durable local files, external catalog and reader compatibility were unverified for R06, R08 and R09 at planning. R16 remains open for the broader walkthrough, and R25 for operational write-back.
+
+## Phase 2 evidence and status
+
+[EXP-020](experiments/EXP-020-phase-2-cdc-gate.md) reconciles the independent publisher, connector and exact-row evidence. Scope each verification to the pinned stock PG16.16 publisher and separate PG18.4 DuckPipe consumer with local DuckLake.
+
+| Question | Status | Evidence and remaining scope |
+| --- | --- | --- |
+| R01 | **EXPERIMENT-VERIFIED** | The scoped publisher and separate consumer replicated the fixed fixture over the isolated TCP bridge. Source preloads are empty. |
+| R02 | **EXPERIMENT-VERIFIED** | Four serial initial copies and temporary slot release produced exact S00. The separate controlled COPY overlap also produced exact S01. |
+| R03 | **EXPERIMENT-VERIFIED** | The held source and Bronze checkpoints match the oracle through S05. Sampled and retained views exclude aborted changes in the tested schedules, and exact S03 excludes deleted item 102. Source-transaction atomicity in Bronze is disproven by R13 evidence. |
+| R04 | **EXPERIMENT-VERIFIED** | Feedback, restart span, apply and visibility are traceable separately. The sparse-table control explains the minimum-per-table stall. Operational mitigation of sustained WAL growth remains unresolved and blocks M2. |
+| R05 | **EXPERIMENT-VERIFIED** within retained WAL | Graceful restart, preserved-volume replacement and a bounded consumer SIGKILL recovered exact current state on the original slot under their tested schedules. Crossing the retention cap rejected reconnect and required a new snapshot. Buffered-but-not-durable and host/publisher loss remain open. |
+| R06 | **OPEN** | Local DuckLake 0.4 metadata and inline rows were observed. A scoped flush produced and verified local Parquet references. Shared object-store consistency remains unverified. |
+| R08 | **OPEN** | Colocated catalog and local lake data persist on the consumer volume. Separation of the catalog from the writer remains unverified. |
+| R09 | **OPEN** | Consumer-local embedded and PostgreSQL SQL reads verified the same Bronze lake. Independent DuckDB process attachment to that lake remains unverified. |
+| R13 | **OPEN** | Explicit partial catalog versions disprove commit-atomic Bronze visibility. The first exact named version at a held, independently verified source checkpoint is usable while retained. Continuous-source cutoffs remain unverified. |
+| R16 | **OPEN** | A read-only walkthrough traces an S04 source commit through publication, slot, sender, worker and direct Bronze rows. Downstream stages in the full walkthrough remain open. |
 
 ## Research priorities
 
-Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six remain **OPEN**. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
+Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six were **OPEN** at the Phase 0 checkpoint. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
 
 Phase 2 starts with the remote compatibility probe (R01) and continues with snapshot, DML, feedback, recovery and visibility (R02–R05, R13, R16). Phase 3 tests catalog, S3 and independent lake access (R06–R09). Windmill integration follows independent lake access. Reporting follows Gold readiness, and the operational path follows worker and source foundations. Use reviewed evidence and an ADR if findings require a stack change.
 
