@@ -78,6 +78,9 @@ class Experiment:
         self.source = (*DOCKER, "exec", "-i", "--user", "postgres", self.source_id,
                        "sh", "-ec", SOURCE_PSQL, "sh")
         self.target = ("bash", "scripts/cdc/consumer/psql.sh", self.consumer_id)
+        # The consumer SQL helper defaults to tuples-only output. The shared
+        # CSV parity parser requires projection headers.
+        self.target_reader = (*self.target, "--pset=tuples_only=off")
         self.admin = ("bash", "sql/cdc/source/admin.sh")
         self.runner = (*DOCKER, "compose", "-f", "compose.source.yaml", "-f",
                        "compose.runner.yaml", "--profile", "source", "--profile", "generator",
@@ -308,7 +311,7 @@ class Experiment:
                 name, plugin, kind, db, temporary, active, *_ = slots[1].split("|")
                 require(name.startswith("duckpipe_snap_") and (plugin, kind, db, temporary, active)
                         == ("pgoutput", "logical", "source_lab", "t", "t"), "temporary slot identity")
-            capture = read_projections(self.target, check, min(remaining, 5))
+            capture = read_projections(self.target_reader, check, min(remaining, 5))
             rows = normalize_rows(table, capture.rows[table], COLUMNS[table], PRIMARY_KEYS[table],
                                   INTEGERS, TIMESTAMPS)
             mapping = status["mappings"][-1]
@@ -330,7 +333,7 @@ class Experiment:
 
         def read_target(budget):
             self.event(label, "target_read_started")
-            rows = read_fixture(self.target, TARGET, min(budget, 8))
+            rows = read_fixture(self.target_reader, TARGET, min(budget, 8))
             self.event(label, "target_read_finished")
             return rows
 
@@ -358,7 +361,7 @@ class Experiment:
         while True:
             last = time.monotonic() >= limit
             result = verify_checkpoint(self.trial, "S03", self.read_source,
-                                       lambda budget: read_fixture(self.target, TARGET, min(budget, 5)),
+                                       lambda budget: read_fixture(self.target_reader, TARGET, min(budget, 5)),
                                        target_timeout=5, interval=POLL)
             count += 1
             write_evidence(self.evidence / label / f"{count:02}", result)
@@ -479,7 +482,7 @@ class Experiment:
             deadline = time.monotonic() + DEADLINE
             while (remaining := deadline - time.monotonic()) > 0:
                 self.event(label, "target_read_started")
-                capture = read_fixture(self.target, TARGET, min(remaining, 8))
+                capture = read_fixture(self.target_reader, TARGET, min(remaining, 8))
                 target = fixture_rows(capture.rows)
                 diffs = compare_checkpoint(result_rows, target)
                 self.event(label, "target_read_finished", differences=diffs)
