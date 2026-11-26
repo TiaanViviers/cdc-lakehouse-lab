@@ -37,7 +37,7 @@ tar -xf /mnt/exp011/repo.tar -C /root/exp011
 cd /root/exp011/repo
 export PROBE_SHA="$(cat /mnt/exp011/revision)"
 export PROBE_OVERLAY=guest-01.qcow2  # Use the actual overlay identity.
-timeout --foreground -k 35s 480s bash tests/integration/remote-probe/run.sh /mnt/exp011
+timeout --foreground -k 35s 480s bash tests/integration/remote-probe/run.sh /mnt/exp011 </dev/null
 ```
 
 The evidence directory is `artifacts/EXP-011/<UTC-run-id>/`. Keep the two PostgreSQL logs and SQL observations with the resolved Compose file, exact rows, resource measurements and teardown checks. Export only the redacted experiment evidence through the guest console. The files in `secrets/` and both volumes belong to the disposable guest. Prior to a successful run, the script intentionally stops at the first failed assertion so later mutations cannot hide the boundary.

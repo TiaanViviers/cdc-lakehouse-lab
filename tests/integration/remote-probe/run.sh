@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run from a fresh repository copy inside the scheduled, disconnected lab guest.
-set -euo pipefail
+set -Eeuo pipefail
 umask 077
 export LC_ALL=C TZ=UTC
 unset DOCKER_CONTEXT COMPOSE_ENV_FILES SOURCE_INPUT_ID
@@ -23,22 +23,26 @@ evidence="$PWD/artifacts/EXP-011/$run"
 mkdir -p "${evidence%/*}"
 mkdir "$evidence"
 mkdir -m 0700 secrets
+exec </dev/null
 exec > >(tee "$evidence/observations.log") 2>&1
 echo "owner=2.1/Codex ticket=38 run=$run revision=$PROBE_SHA overlay=${PROBE_OVERLAY:?set PROBE_OVERLAY} project=$COMPOSE_PROJECT_NAME bridge=$bridge db=source_lab group=$group publication=$publication slot=$slot"
+trap 'rc=$?; echo "probe step failed at line $LINENO (exit $rc)" >&2' ERR
+uname -sr
+sed -n '/^PRETTY_NAME=/p' /etc/os-release
 echo "Budget: run 480s, checkpoint 60s, polls every 500ms after a read, WAL <256MiB, each PG volume <512MiB, consumer /tmp 64MiB, guest free >=1GiB"
 
 docker_local() { docker --host unix:///var/run/docker.sock "$@"; }
 source_compose() { docker_local compose -f compose.source.yaml --profile source "$@"; }
 stack() { docker_local compose -f compose.source.yaml -f "$probe/compose.probe.yaml" --profile source "$@"; }
 source_sql() {
-    timeout 8s docker --host unix:///var/run/docker.sock exec -i "$source_id" sh -ec '
+    timeout -k 2s 8s docker --host unix:///var/run/docker.sock exec -i "$source_id" sh -ec '
         export PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")" PGREQUIREAUTH=scram-sha-256
         export PGOPTIONS="-c statement_timeout=5000" PGCONNECT_TIMEOUT=3
         exec psql -XwqAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -U source_admin -d source_lab "$@"
     ' sh "$@"
 }
 consumer_sql() {
-    timeout 12s docker --host unix:///var/run/docker.sock exec -i --user postgres -e PGOPTIONS='-c statement_timeout=9000' \
+    timeout -k 2s 12s docker --host unix:///var/run/docker.sock exec -i --user postgres -e PGOPTIONS='-c statement_timeout=9000' \
         "$consumer_id" psql -XwqAt -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"
 }
 publisher_state() { source_sql < "$probe/observe-source.sql"; }
@@ -180,7 +184,7 @@ test "$(df -Pk "$(docker_local info -f '{{.DockerRootDir}}')" | awk 'NR==2 {prin
 
 (cd "$media" && sha256sum -c SHA256SUMS && sha256sum source.tar consumer.tar probe.tar)
 for image_archive in source consumer probe; do
-    timeout 90s docker --host unix:///var/run/docker.sock load -i "$media/$image_archive.tar"
+    timeout -k 2s 90s docker --host unix:///var/run/docker.sock load -i "$media/$image_archive.tar"
 done
 # Containerd inspect reports the index ID. Verify the selected member and
 # config directly from the content-addressed OCI archive as well.
@@ -264,8 +268,10 @@ SELECT name, setting, unit FROM pg_settings WHERE name IN
 ORDER BY name;
 SELECT current_database(), system_identifier FROM pg_control_system();
 SQL
+echo "Assert source version and empty replication inventory"
 test "$(source_sql -c "SELECT current_setting('server_version_num') = '160016' AND current_setting('shared_preload_libraries') = '' AND NOT EXISTS (SELECT FROM pg_available_extensions WHERE name LIKE 'pg_duck%')")" = t
 test "$(source_sql -c 'SELECT (SELECT count(*) FROM pg_publication), (SELECT count(*) FROM pg_replication_slots)')" = '0|0'
+echo "Enroll Phase 1 fixture and provision probe-only scope"
 disposable_id=$(cat /proc/sys/kernel/random/uuid)
 source_sql -v disposable_id="$disposable_id" < sql/source/001_fixture_v1.sql
 fixture_acl() {
@@ -322,7 +328,7 @@ healthy "$consumer_id"
 test "$(docker_local network inspect "$SOURCE_INPUT_ID" -f '{{len .Containers}}')" = 2
 docker_local network inspect "$SOURCE_INPUT_ID" -f '{{range .Containers}}{{println .Name .IPv4Address .IPv6Address}}{{end}}'
 for cid in "$source_id" "$consumer_id"; do
-    docker_local exec "$cid" sh -ec 'ls /sys/class/net; cat /proc/net/route; cat /proc/1/comm; readlink /proc/1/ns/net; readlink /proc/1/ns/pid'
+    docker_local exec --user postgres "$cid" sh -ec 'ls /sys/class/net; cat /proc/net/route; cat /proc/1/comm; readlink /proc/1/ns/net; readlink /proc/1/ns/pid'
 done
 sample
 
@@ -347,7 +353,7 @@ docker_local exec "$consumer_id" sh -ec '
 '
 test "$(consumer_sql -c "SELECT current_setting('server_version_num') = '180004' AND current_setting('duckpipe.query_routing') = 'off'")" = t
 hba='SELECT line_number,type,database,user_name,address,auth_method,error FROM pg_hba_file_rules ORDER BY rule_number;'
-# PG16 orders by line number and has no rule_number column.
+# The PG16 probe file has no includes. Line order is sufficient there.
 source_sql -c "${hba/rule_number/line_number}"
 consumer_sql -c "$hba"
 test "$(source_sql -c 'SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL')" = 0
@@ -355,11 +361,11 @@ test "$(consumer_sql -c 'SELECT count(*) FROM pg_hba_file_rules WHERE error IS N
 
 tcp_client='IFS= read -r PGPASSWORD; export PGPASSWORD PGREQUIREAUTH=scram-sha-256 PGCONNECT_TIMEOUT=3; exec psql -XwqAt -v ON_ERROR_STOP=1 "$@"'
 source_from_consumer() {
-    timeout 8s docker --host unix:///var/run/docker.sock exec -i --user postgres "$consumer_id" sh -ec "$tcp_client" sh \
+    timeout -k 2s 8s docker --host unix:///var/run/docker.sock exec -i --user postgres "$consumer_id" sh -ec "$tcp_client" sh \
         -h source-db -U probe_replicator "$@"
 }
 consumer_from_peer() {
-    timeout 8s docker --host unix:///var/run/docker.sock run --rm -i --pull never --network "$SOURCE_INPUT_ID" \
+    timeout -k 2s 8s docker --host unix:///var/run/docker.sock run --rm -i --pull never --network "$SOURCE_INPUT_ID" \
         --memory 96m --memory-swap 96m --cpus .5 --pids-limit 32 --read-only --cap-drop ALL \
         --env LC_ALL=C --entrypoint sh "$source_image" -ec "$tcp_client" sh -h probe-consumer -U postgres -d postgres "$@"
 }
@@ -378,6 +384,7 @@ printf 'incorrect\n' | assert_rejected 'password authentication failed' consumer
 docker_local exec --user postgres "$consumer_id" psql -h 127.0.0.1 -U postgres -d postgres -XwAtqc \
     'SELECT current_user,current_database(),inet_client_addr(),inet_server_addr();'
 
+test "$(docker_local network inspect "$SOURCE_INPUT_ID" -f '{{len .Containers}}')" = 2
 publisher_state > "$evidence/before-registration.source"
 catalog_state > "$evidence/before-registration.catalog"
 consumer_sql <<'SQL'
