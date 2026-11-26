@@ -15,6 +15,7 @@ unset DOCKER_CONTEXT DOCKER_HOST COMPOSE_FILE COMPOSE_PROFILES SOURCE_INPUT_ID
 export COMPOSE_DISABLE_ENV_FILE=1
 run=$(date -u +%Y%m%dt%H%M%Sz)-$(openssl rand -hex 2)
 export COMPOSE_PROJECT_NAME="cdc25-$run"
+project_label="com.docker.compose.project=$COMPOSE_PROJECT_NAME"
 bridge="p25${run:9:6}${run:17:4}"
 group="g25_${run/-/_}"
 publication="p25_${run/-/_}"
@@ -53,48 +54,84 @@ owned() {
 volume_owned() {
     [[ $(d volume inspect -f '{{index .Labels "com.docker.compose.project"}}/{{index .Labels "com.docker.compose.volume"}}' "$COMPOSE_PROJECT_NAME"_"$1") == "$COMPOSE_PROJECT_NAME/$1" ]]
 }
-# Only remove assets enumerated from the fresh project after matching their identities.
+firewall_rule() {
+    local action=$1 fw chain
+    local -a match=(-i "$bridge")
+    read -r fw chain <<< "$2" || return
+    if [[ $chain == DOCKER-USER ]]; then match+=(! -o "$bridge"); fi
+    "$fw" "$action" "$chain" "${match[@]}" -j DROP
+}
+report_retained() {
+    local rule
+    echo "Teardown incomplete at $1. Remaining assets for $COMPOSE_PROJECT_NAME:"
+    d ps -a --no-trunc --filter "label=$project_label" --format 'container={{.ID}} name={{.Names}} status={{.Status}}' ||
+        echo 'Project containers could not be inspected'
+    d volume ls --filter "label=$project_label" --format 'volume={{.Name}}' ||
+        echo 'Project volumes could not be inspected'
+    d network ls --no-trunc --filter "name=^${COMPOSE_PROJECT_NAME}-input$" --format 'network={{.ID}} name={{.Name}}' ||
+        echo 'Project network could not be inspected'
+    if [[ -e /sys/class/net/$bridge ]]; then echo "bridge=$bridge present"; fi
+    for rule in "${firewall_rules[@]}"; do
+        if firewall_rule -C "$rule"; then
+            echo "rule=$rule bridge=$bridge present"
+        else
+            echo "rule=$rule bridge=$bridge absent or check failed"
+        fi
+    done
+    return 1
+}
+# Any failed command or ambiguous inventory keeps the bridge rules in place.
+cleanup_runtime() {
+    local containers volumes id svc volume peers running networks rule
+    containers=$(d ps -aq --no-trunc --filter "label=$project_label") || { report_retained 'container inventory'; return 1; }
+    for id in $containers; do
+        svc=$(d inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$id") ||
+            { report_retained 'container identity'; return 1; }
+        if [[ $svc != cdc-catalog && $svc != source-db ]] || ! owned "$id" "$svc"; then
+            report_retained 'container ownership'
+            return 1
+        fi
+    done
+    volumes=$(d volume ls -q --filter "label=$project_label") || { report_retained 'volume inventory'; return 1; }
+    for volume in $volumes; do
+        if [[ $volume != "$COMPOSE_PROJECT_NAME"_source-pg && $volume != "$COMPOSE_PROJECT_NAME"_cdc-pg ]] ||
+            ! volume_owned "${volume#"$COMPOSE_PROJECT_NAME"_}"; then
+            report_retained 'volume ownership'
+            return 1
+        fi
+    done
+    # The only allowed live endpoints are the owned, running project containers.
+    peers=$(d network inspect -f '{{range $id, $_ := .Containers}}{{println $id}}{{end}}' "$SOURCE_INPUT_ID" | sort) ||
+        { report_retained 'bridge inventory'; return 1; }
+    running=$(d ps -q --no-trunc --filter "label=$project_label" | sort) ||
+        { report_retained 'running container inventory'; return 1; }
+    if [[ $peers != "$running" ]]; then report_retained 'bridge ownership'; return 1; fi
+
+    stop_checked cdc-catalog || { report_retained 'consumer stop'; return 1; }
+    stop_checked source-db || { report_retained 'source stop'; return 1; }
+    stack down --volumes || { report_retained 'Compose down'; return 1; }
+    containers=$(d ps -aq --filter "label=$project_label") || { report_retained 'final container inventory'; return 1; }
+    volumes=$(d volume ls -q --filter "label=$project_label") || { report_retained 'final volume inventory'; return 1; }
+    if [[ -n $containers || -n $volumes ]]; then report_retained 'workload removal'; return 1; fi
+
+    d network rm "$SOURCE_INPUT_ID" || { report_retained 'bridge removal'; return 1; }
+    networks=$(d network ls --no-trunc --filter "name=^${COMPOSE_PROJECT_NAME}-input$" -q) ||
+        { report_retained 'final bridge inventory'; return 1; }
+    if [[ -n $networks || -e /sys/class/net/$bridge ]]; then report_retained 'bridge removal check'; return 1; fi
+
+    for rule in "${firewall_rules[@]}"; do
+        firewall_rule -D "$rule" || { report_retained 'firewall rule removal'; return 1; }
+    done
+    echo 'Project containers, volumes, bridge and firewall rules removed'
+}
 cleanup() {
-    local rc=$? id svc volume fw rule
+    local rc=$?
     trap - EXIT ERR TERM
     set +e
-    if [[ -n ${SOURCE_INPUT_ID:-} ]]; then
-        for id in $(d ps -aq --no-trunc --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME"); do
-            svc=$(d inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$id")
-            if [[ $svc != cdc-catalog && $svc != source-db ]] || ! owned "$id" "$svc"; then
-                echo 'Cleanup refused: unexpected container identity'
-                exit 1
-            fi
-        done
-        for volume in $(d volume ls -q --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME"); do
-            if [[ $volume != "$COMPOSE_PROJECT_NAME"_source-pg && $volume != "$COMPOSE_PROJECT_NAME"_cdc-pg ]] ||
-                ! volume_owned "${volume#"$COMPOSE_PROJECT_NAME"_}"; then
-                echo 'Cleanup refused: unexpected volume identity'
-                exit 1
-            fi
-        done
-        # A failed trial may leave a slot in its private source cluster. Dispose of
-        # the exact project only while no other endpoints are attached.
-        if [[ $(d network inspect -f '{{len .Containers}}' "$SOURCE_INPUT_ID") != "$(d ps -q --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" | wc -l)" ]]; then
-            echo 'Cleanup refused: unexpected bridge peers'
-            exit 1
-        fi
-        stop_checked cdc-catalog || rc=1
-        stop_checked source-db || rc=1
-        stack down --volumes || rc=1
-        d network rm "$SOURCE_INPUT_ID" || rc=1
-        for rule in "${firewall_rules[@]}"; do
-            read -r fw chain <<< "$rule"
-            if [[ $chain == INPUT ]]; then
-                "$fw" -D INPUT -i "$bridge" -j DROP || rc=1
-            else
-                "$fw" -D DOCKER-USER -i "$bridge" ! -o "$bridge" -j DROP || rc=1
-            fi
-        done
-        [[ -z $(d ps -aq --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME") &&
-           -z $(d volume ls -q --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME") &&
-           -z $(d network ls -q --filter "name=^${COMPOSE_PROJECT_NAME}-input$") &&
-           ! -e /sys/class/net/$bridge ]] || rc=1
+    if [[ -n ${SOURCE_INPUT_ID:-} ]] && ! cleanup_runtime; then
+        echo 'Preserved the run credentials in the root-only secrets directory'
+        echo 'project_cleanup_exit=1'
+        exit 1
     fi
     rm -f secrets/{source-db,cdc-catalog,fixture-owner}-password secrets/health-original || rc=1
     rmdir secrets || rc=1
@@ -448,4 +485,53 @@ d logs --tail 150 "$consumer_id" 2>&1 | awk '
     /connection authenticated: identity="postgres" method=(trust|scram-sha-256) / {print}
 ' | tee "$evidence/recreated-auth.log"
 grep -Fq 'method=scram-sha-256' "$evidence/recreated-auth.log"
+# Inject a single stop failure while both real endpoints are still running.
+# The override is limited to this subshell. The EXIT trap retries normal teardown.
+if (
+    trap - EXIT
+    stack() {
+        if [[ $1 == stop ]]; then
+            echo "Injected Compose stop failure for $4"
+            return 1
+        fi
+        d compose -f compose.source.yaml -f compose.cdc.yaml --profile source --profile cdc "$@"
+    }
+    cleanup_runtime
+) > "$evidence/failed-teardown.txt" 2>&1; then
+    echo 'Injected teardown unexpectedly succeeded'
+    exit 1
+fi
+cat "$evidence/failed-teardown.txt"
+grep -Fxq 'Injected Compose stop failure for cdc-catalog' "$evidence/failed-teardown.txt"
+grep -Fq 'Teardown incomplete at consumer stop.' "$evidence/failed-teardown.txt"
+for cid in "$source_id" "$consumer_id"; do
+    test "$(d inspect -f '{{.State.Status}}' "$cid")" = running
+done
+test "$(d network inspect -f '{{len .Containers}}' "$SOURCE_INPUT_ID")" = 2
+test -e "/sys/class/net/$bridge"
+timeout --foreground -k 1s 20s python3 - "$bridge" "$consumer_id" "$SOURCE_INPUT_ID" <<'PY_HOST'
+from contextlib import ExitStack
+import json
+import subprocess
+import sys
+
+sys.path.insert(0, "scripts/isolation")
+from preflight import DOCKER, check_firewall, docker, host_control
+
+bridge, consumer, network = sys.argv[1:]
+check_firewall(bridge)
+print("Failed teardown: dual-stack INPUT and forwarding rule order verified", flush=True)
+with ExitStack() as stack:
+    for config in json.loads(docker("network", "inspect", network))[0]["IPAM"]["Config"]:
+        address = config["Gateway"]
+        port = host_control(stack, address)
+        result = subprocess.run(
+            [*DOCKER, "exec", "--user", "postgres", consumer, "timeout", "2s",
+             "bash", "-c", 'exec 3<>"/dev/tcp/$1/$2"', "bash", address, port],
+            timeout=4,
+        )
+        if result.returncode != 124:
+            raise SystemExit(f"Expected a host timeout at {address}, got {result.returncode}")
+        print(f"Failed teardown: consumer host connection denied at {address}", flush=True)
+PY_HOST
 echo 'EXP-015 ACCEPTANCE CHECKS PASSED'
