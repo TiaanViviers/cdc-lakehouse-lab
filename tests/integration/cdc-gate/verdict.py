@@ -25,7 +25,7 @@ def verified_hashes(run):
             diff = json.loads((run / step / f"{side}.diff.json").read_text())
             rows = snapshot["rows"]
             if (snapshot["checkpoint"] != step or snapshot["side"] != side
-                    or diff["status"] != "pass" or diff["differences"]
+                    or diff["status"] != "pass" or diff["diffs"]
                     or compare_checkpoint(expected[step], rows)):
                 raise RuntimeError(f"{run.name}: {step} {side} is not independently exact")
             hashes[f"{step}/{side}"] = canonical_hash(rows)
