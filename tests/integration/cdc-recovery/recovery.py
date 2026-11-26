@@ -116,7 +116,7 @@ class Recovery(Experiment):
         selectors = {
             "publisher": (self.source_id, {
                 "start_replication": r"START_REPLICATION SLOT [\"a-z_0-9]+ LOGICAL [0-9A-F]+/[0-9A-F]+",
-                "slot_invalidated": r"invalidating slot \"[a-z_0-9]+\"",
+                "slot_invalidated": r"invalidating obsolete replication slot \"[a-z_0-9]+\"",
                 "lost_reconnect": r"can no longer get changes from replication slot \"[a-z_0-9]+\"",
                 "removed_wal": r"requested WAL segment [0-9A-F]+ has already been removed",
             }),
@@ -157,7 +157,7 @@ class Recovery(Experiment):
     def fault(self, label, *, kill=False):
         check_firewall(os.environ["BRIDGE"])
         require(self.consumer_identity(running=True) == self.original_volume, "pre-fault volume mismatch")
-        self.event(label, "fault_requested", signal="SIGKILL" if kill else "Compose-profile stop")
+        self.event(label, "fault_requested", signal="SIGKILL" if kill else "docker stop --time=12")
         if kill:
             self.docker("kill", "--signal=KILL", self.consumer_id)
         else:
@@ -402,6 +402,10 @@ class Recovery(Experiment):
         oid = self.sql("tracked publication OID", "SELECT oid FROM pg_publication;")
         require(oid == self.publication_oid, "lost publication identity changed")
         require(self.consumer_identity(running=True) == self.original_volume, "old consumer identity")
+        for table in TABLES:
+            self.group_sql("remove lost mapping", f"""
+                SELECT duckpipe.remove_table('fixture.{table}', drop_target => false, sync_group => :'group');
+            """)
         self.group_sql("drop lost group", "SELECT duckpipe.drop_group(:'group');")
         self.members = ()
         self.observer.source = replace(self.observer.source, slot="", publication="", members=())
