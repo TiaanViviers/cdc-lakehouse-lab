@@ -52,9 +52,11 @@ class Gate(VisibilityExperiment, Recovery):
             self.event("auth", "tcp_scram_success_and_wrong_password_rejected", host=host, database=database,
                        role=role, other_database_rejected=host == "source-db")
 
-    def quiescent_data(self, label, step):
+    def quiescent_data(self, label, step, *, disabled=False):
         require(not self.data(label, step, "target"), f"{label}: persisted {step} differs")
-        require(not self.group_state(label)["worker_pids"], f"{label}: worker started during read")
+        status = self.status(label) if disabled else self.group_state(label)
+        require(not status["worker_pids"] and status["group"]["enabled"] is not disabled,
+                f"{label}: unexpected worker or group state")
         require(not self.slot_sample(label)["slot"]["active"], f"{label}: slot active during read")
 
     def graceful_restart(self):
@@ -213,7 +215,7 @@ class Gate(VisibilityExperiment, Recovery):
             SELECT duckpipe.stop_worker(:'group');
         """)
         self.wait_active("before-file-control", False)
-        self.quiescent_data("inline-quiescent", "S05")
+        self.quiescent_data("inline-quiescent", "S05", disabled=True)
         initial = catalog(self.consumer_id)
         self.save("inline-catalog.json", initial)
         require(initial["catalog_schema"] == "ducklake"
@@ -231,7 +233,7 @@ class Gate(VisibilityExperiment, Recovery):
         require(files and all(row["magic"] == "PAR1" and row["table_id"] == table_id for row in files)
                 and sum(row["record_count"] for row in files) == len(load_expectations()["S05"]["order_items"])
                 and not flushed["delete_files"], "scoped DuckLake Parquet reference check failed")
-        self.quiescent_data("file-quiescent", "S05")
+        self.quiescent_data("file-quiescent", "S05", disabled=True)
         self.resources("after-file-control")
         self.event("catalog", "layer_and_files_verified", format="0.4", inlined_tables=len(initial["inline_tables"]),
                    physical_files=len(files))
