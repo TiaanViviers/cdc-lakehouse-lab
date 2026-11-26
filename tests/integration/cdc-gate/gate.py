@@ -101,7 +101,12 @@ class Gate(VisibilityExperiment, Recovery):
         require(self.group_state("replacement")["group"]["slot_name"] == self.slot, "replacement changed slot")
         self.quiescent_data("replacement-before-worker", "S04")
         after = self.slot_sample("replacement")["slot"]
-        require(before == after, "inactive slot changed across consumer replacement")
+        # Publisher WAL can advance independently while the slot is inactive.
+        # Headroom is sampled for the retention verdict, outside this identity check.
+        fields = ("slot_name", "slot_type", "database", "plugin", "temporary",
+                  "active", "active_pid", "restart_lsn", "confirmed_flush_lsn", "wal_status")
+        require(all(before[field] == after[field] for field in fields),
+                "inactive slot identity or positions changed across consumer replacement")
         require(catalog(self.consumer_id) == self.catalog_before_replacement, "replacement changed local catalog")
         self.auth()
         self.event("replacement", "consumer_replaced_with_same_cluster_catalog_and_volume",
