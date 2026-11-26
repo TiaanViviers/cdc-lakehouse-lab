@@ -280,7 +280,8 @@ no_objects() {
 reject group-without-create 'remote create publication' create_group
 fingerprint f
 test -z "$(source_sql -c 'SELECT pubname FROM pg_publication')"
-test "$(consumer_sql -c 'SELECT count(*) FROM duckpipe.sync_groups')" = 0
+consumer_sql -c 'SELECT name, mode, enabled FROM duckpipe.sync_groups ORDER BY name' > "$evidence/groups-after-denial.txt"
+test "$(consumer_sql -c "SELECT count(*) FROM duckpipe.sync_groups WHERE name='$group'")" = 0
 admin drop-slot "${fingerprint[@]}"
 no_objects
 

@@ -1,6 +1,6 @@
 # PostgreSQL 16 publisher preparation
 
-This procedure exercises the source side of [2.2](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/39). It uses the stock PostgreSQL 16.16 profile, the Phase 1 enrollment and native pgoutput. Connector provisioning depends on the reviewed [2.1](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/38) result. Record observations in [EXP-012](experiments/EXP-012-publisher-lifecycle.md).
+This procedure exercises the source side of [2.2](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/39). It uses the stock PostgreSQL 16.16 profile, the Phase 1 enrollment and the reviewed DuckPipe build from [2.1](experiments/EXP-011-remote-pg16-probe.md). Record observations in [EXP-012](experiments/EXP-012-publisher-lifecycle.md).
 
 ## Disposable runtime
 
@@ -40,4 +40,27 @@ PostgreSQL 16's REPLICATION attribute gives the role cluster-wide powers over sl
 7. To check active refusal, use a replication-mode peer with `pg_recvlogical --start --no-loop --status-interval=0 --file=/dev/null --option proto_version=1 --option "publication_names=$publication" --slot="$slot"` over the isolated bridge. Use `--dbname=source_lab --host=source-db --username="$publisher" --no-password` and the same secret-input pattern as psql. Bound the peer with an external deadline and check for `active=t` before running `admin drop-slot` with the creation fingerprint. Require the active-slot refusal and unchanged identity. Stop that exact peer and require `active=f`. Use a separate fresh clone for this case if repeatability is affected by receiver feedback. A changed fingerprint blocks the native drop. Preserve that volume for inspection or tear down the documented disposable clone.
 8. With the peer stopped, disable login using `admin disable-login "$role_oid"`. Check no publisher sessions remain before dropping the native slot and publication in that order. Hold exclusive use throughout. Verify zero slots and publications. Restore the backed-up HBA file, reload and verify the original rules, then run `admin drop-role "$role_oid"`. Compare catalogs and fixture ACLs with the untouched baseline and run the regression before a retained volume is reused. If a guard fails, retain the inventory and identify the owning experiment.
 
-The native cleanup matches an unchanged slot fingerprint recorded during controlled creation and a publication OID/owner/definition. PostgreSQL 16 has no slot owner or immutable slot ID. Two uncoordinated sessions can replace a slot between a catalog check and a drop. Exclusive access, upfront collision checks and quiescence are required. The server's SQL drop also refuses an active slot at acquisition. Connector-driven LSN advancement and object cleanup require a reviewed identity contract. [PG16 slot catalog](https://www.postgresql.org/docs/16/view-pg-replication-slots.html) · [PG16.16 slot drop implementation](https://github.com/postgres/postgres/blob/REL_16_16/src/backend/replication/slotfuncs.c#L199) · [PG16 native replication client](https://www.postgresql.org/docs/16/app-pgrecvlogical.html)
+The native cleanup matches an unchanged slot fingerprint recorded during controlled creation and a publication OID/owner/definition. PostgreSQL 16 has no slot owner or immutable slot ID. Two uncoordinated sessions can replace a slot between a catalog check and a drop. Exclusive access, upfront collision checks and quiescence are required. The server's SQL drop also refuses an active slot at acquisition. For an advanced slot, capture the quiescent fingerprint only from a continuously tracked lifecycle and preserve the creation, activity and stop observations with it. A fresh inventory alone does not authorize adoption or cleanup. [PG16 slot catalog](https://www.postgresql.org/docs/16/view-pg-replication-slots.html) · [PG16.16 slot drop implementation](https://github.com/postgres/postgres/blob/REL_16_16/src/backend/replication/slotfuncs.c#L199) · [PG16 native replication client](https://www.postgresql.org/docs/16/app-pgrecvlogical.html)
+
+
+## Pinned DuckPipe source contract
+
+The run derives the consumer group as `g_<key>`. The validated [2.1 API](../tests/integration/remote-probe/README.md#minimal-api-sequence-for-25) creates the persistent slot before the empty publication. Each registration adds its business table and sets its replica identity to FULL. Complete one initial copy before registering the next table so a single persistent slot and one temporary snapshot slot fit the configured cap. Denied publication creation can leave a persistent slot with no consumer group. Check both catalogs and clean up only after establishing the slot's creation provenance.
+
+On an empty source inventory, run `admin elevate "$role_oid"` to grant database CREATE and transfer the four v1 business tables to the publisher. The source fixture owner keeps the schema, receipt, reset function and enrollment. Before elevation verify the baseline privileges, deterministic fixture rows and guarded reset behavior. Register the exact four tables under the publisher-owned publication. Capture the publication OID, slot fingerprint, scoped ACLs and per-table identity. Keep the connector password in the guest and send it to the consumer only through the local provisioning channel.
+
+After the initial copies, run `admin reduce "$role_oid"` to return the four tables to the fixture owner, retain explicit SELECT and revoke database CREATE. Leave the publication owned by the publisher and each registered identity at FULL. Check application of a new committed update before and after a fresh connection using the same group and slot. Any later registration or publication maintenance that requires table ownership needs a fresh reviewed elevation and lifecycle boundary.
+
+Stop the exact consumer, disable publisher login and verify no publisher sessions and an inactive slot. Use the post-stop fingerprint for the previously tracked slot and the original publication OID with the guarded drop commands. On successful source cleanup, use `admin restore-identity "$role_oid"` to restore DEFAULT for all four known v1 tables, remove the scoped role and restore HBA. Compare the full source catalog with baseline before exercising guarded reset. The stopped consumer used in EXP-012 is disposable and its exact local volume is removed with the project after the source checks.
+
+### Reproduce EXP-012
+
+Use the existing [2.1 staging recipe and offline guest](../tests/integration/remote-probe/README.md) with this revision and its archive hashes. Give the run a fresh 2-vCPU, 2-GiB overlay, the recorded image pins, no NIC and a reserved VM window. From the staged checkout, run:
+
+```bash
+export PROBE_SHA="$(cat /mnt/exp012/revision)"
+export PROBE_OVERLAY=guest-exp012.qcow2
+timeout --foreground -k 35s 600s bash sql/cdc/source/run-exp012.sh /mnt/exp012 </dev/null
+```
+
+The runner creates its own enrolled clone, uses the existing Phase 1 schema acceptance suite before CDC and reuses the isolated 2.1 consumer for the lifecycle trial. Expect `EXP-012 SOURCE AND CONNECTOR CHECKS PASSED` and `EXP-012 project teardown status=0`. Review the catalog and row files, SQL errors, matching authentication log lines, resource samples and teardown result together.
