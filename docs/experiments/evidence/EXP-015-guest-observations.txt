@@ -1,0 +1,258 @@
+=== Identity, offline import and bridge gate ===
+owner=2.5/Codex ticket=42 run=20261126t083345z-5916 revision=7803c440864f974234dc4d74774761e70c032fad overlay=guest-02.qcow2 project=cdc25-20261126t083345z-5916 bridge=p250833455916 database=source_lab consumer_db=postgres group=g25_20261126t083345z_5916 publication=p25_20261126t083345z_5916 slot=s25_20261126t083345z_5916
+Budgets: run 480s, parity 60s, poll 500ms after read, source/consumer PG volume <512MiB, WAL <256MiB, consumer tmpfs 64MiB, guest free >=1GiB
+engine=29.1.3
+Docker Compose version 2.40.3+ds1-0ubuntu1~24.04.1
+cgroup=2 firewall={"Driver":"iptables"}
+Linux 6.8.0-147-generic
+source.tar: OK
+consumer.tar: OK
+probe.tar: OK
+revision: OK
+repo.tar: OK
+0c0a5c57fdf877a81f0930f105bb789f01d4f333e40d025584197fcdc5975366  source.tar
+91185421b787b82476b65f32abb02f3ae15ae01956214b4b5a12fea87a2fa38c  consumer.tar
+a5ad58ea45e9e1728b51a72bc2e0bc3e2a33ca4316566faec9932cb0b5f26a13  probe.tar
+linux/amd64 index=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 manifest=sha256:de0a9036fd11a75eaff23508209c2cea675d081aecea51f60cdca78c0802a5a6 config=sha256:a0452c3a54190ba6eeaf94dd3e434f97fd3862944c73b3f681f85eb8e3b2f56e
+e1c14fc253a9087daf7b1e99b27145c0a69d1bfffd7677868298ef2032478e16 cdc25-20261126t083345z-5916-input bridge internal=true ipv6=true [{"Gateway":"172.18.0.1","IPRange":"","Subnet":"172.18.0.0/16"},{"Gateway":"fdfa:653f:4c09::1","IPRange":"","Subnet":"fdfa:653f:4c09::/64"}]
+Error response from daemon: No such image: pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+Loaded image: postgres@sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37
+Loaded image: pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+Loaded image: public.ecr.aws/supabase/postgres-meta:v0.96.6
+docker.io/library/postgres:16.16-bookworm@sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 linux/amd64 sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37
+docker.io/pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 linux/amd64 sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+peer DNS+TCP: PASS cdc-isolation-v1 (0.15s)
+host: PASS ETIMEDOUT (1.59s)
+host IPv6: PASS ETIMEDOUT (1.58s)
+LAN IPv4 positive: PASS cdc-isolation-v1 (0.08s)
+LAN IPv4: PASS ENETUNREACH (0.09s)
+IPv6 positive: PASS cdc-isolation-v1 (0.14s)
+IPv6: PASS ENETUNREACH (0.08s)
+delegated DNS positive: PASS 172.19.0.2 (0.08s)
+delegated DNS: PASS ESERVFAIL (0.08s)
+VPN IPv4 positive: PASS cdc-isolation-v1 (0.10s)
+VPN IPv4: PASS ENETUNREACH (0.09s)
+PASS: source bridge probes and required IPv4/IPv6 rules verified
+e1c14fc253a9087daf7b1e99b27145c0a69d1bfffd7677868298ef2032478e16
+
+=== Consumer settings, authentication and health ===
+health running healthy
+health running healthy
+PostgreSQL 18.4 (Debian 18.4-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+pg_duckdb,pg_ducklake,pg_duckpipe
+scram-sha-256
+off
+pg_duckdb|1.1.0
+pg_ducklake|0.1.0
+pg_duckpipe|1.0.0
+v1.5.1
+duckdb.max_temp_directory_size|48MiB||command line
+duckdb.memory_limit|96|MB|command line
+duckdb.temporary_directory|/tmp/duckdb-cdc||command line
+duckdb.threads|1||command line
+max_connections|20||command line
+shared_buffers|8192|8kB|command line
+117|local|{all}|{all}||trust|
+119|host|{all}|{all}|127.0.0.1|trust|
+121|host|{all}|{all}|::1|trust|
+124|local|{replication}|{all}||trust|
+125|host|{replication}|{all}|127.0.0.1|trust|
+126|host|{replication}|{all}|::1|trust|
+128|host|{all}|{all}|all|scram-sha-256|
+129|host|{all}|{all}|127.0.0.1|trust|
+130|host|{all}|{all}|::1|trust|
+Loopback TCP succeeds with require_auth=none and no password
+psql: error: connection to server at "127.0.0.1", port 5432 failed: authentication method requirement "scram-sha-256" failed: server did not complete authentication
+postgres|postgres|fdfa:653f:4c09::4|fdfa:653f:4c09::3
+psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+health running unhealthy
+2 psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+2 psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+2 psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+2 psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+2 psql: error: connection to server at "cdc-catalog" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+health running healthy
+{"drain_poll_ms":100,"duckdb_buffer_memory_mb":16,"duckdb_flush_memory_mb":96,"duckdb_threads":1,"flush_interval_ms":5000,"flush_batch_threshold":50000,"max_concurrent_flushes":1,"max_queued_bytes":1048576}
+health running healthy
+health running healthy
+
+=== Resource observations, exact rows and checked teardown ===
+id=80ba277a89697376860daa7d6ba66d210c63bacc5663ddb0084e71219e53634c image=sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 memory=805306368 swap=805306368 cpu=1000000000 pids=128 log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+memory.max 805306368|
+memory.swap.max 0|
+memory.peak 133369856|
+memory.events low 0|high 0|max 0|oom 0|oom_kill 0|oom_group_kill 0|
+cpu.max 100000 100000|
+cpu.stat usage_usec 1644426|user_usec 895798|system_usec 748627|core_sched.force_idle_usec 0|nr_periods 37|nr_throttled 1|throttled_usec 3013|nr_bursts 0|burst_usec 0|
+pids.max 128|
+pids.current 8|
+16392	/var/lib/postgresql/data/pg_wal
+/dev/vda1          8050120 4364340   3669396      55% /var/lib/postgresql/data
+net:[4026532204]
+pid:[4026532202]
+id=1c5feb49d64b2af8c039dc4e368882f0c715c98f1524f59fe2f2286d9ab38f0d image=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 memory=536870912 swap=536870912 cpu=750000000 pids=128 log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+memory.max 536870912|
+memory.swap.max 0|
+memory.peak 159858688|
+memory.events low 0|high 0|max 0|oom 0|oom_kill 0|oom_group_kill 0|
+cpu.max 75000 100000|
+cpu.stat usage_usec 1329153|user_usec 693996|system_usec 635157|core_sched.force_idle_usec 0|nr_periods 26|nr_throttled 10|throttled_usec 215116|nr_bursts 0|burst_usec 0|
+pids.max 128|
+pids.current 11|
+16396	/var/lib/postgresql/18/docker/pg_wal
+/dev/vda1          8050120 4364344   3669392      55% /var/lib/postgresql
+net:[4026532266]
+pid:[4026532264]
+checkpoint=initial attempt=1 previous=none exact_rows:
+1|file seed
+2|second key
+bronze|items|2
+checkpoint=before-recreation attempt=1 previous=none exact_rows:
+1|file seed
+2|second key
+id=1c5feb49d64b2af8c039dc4e368882f0c715c98f1524f59fe2f2286d9ab38f0d image=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 memory=536870912 swap=536870912 cpu=750000000 pids=128 log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+memory.max 536870912|
+memory.swap.max 0|
+memory.peak 204910592|
+memory.events low 0|high 0|max 0|oom 0|oom_kill 0|oom_group_kill 0|
+cpu.max 75000 100000|
+cpu.stat usage_usec 4929209|user_usec 3254168|system_usec 1675040|core_sched.force_idle_usec 0|nr_periods 154|nr_throttled 23|throttled_usec 641076|nr_bursts 0|burst_usec 0|
+pids.max 128|
+pids.current 11|
+41392	/var/lib/postgresql
+16396	/var/lib/postgresql/18/docker/pg_wal
+/dev/vda1          8050120 4364768   3668968      55% /var/lib/postgresql
+net:[4026532266]
+pid:[4026532264]
+cdc-catalog stop: exited 0 false
+same_cluster=7712395715686359067 former_container=1c5feb49d64b2af8c039dc4e368882f0c715c98f1524f59fe2f2286d9ab38f0d recreated_container=59b581d9f7f8f521865b56ebed7ec5616c184171d9185ccb1a82de82fc6941db slot=s25_20261126t083345z_5916
+1|file seed
+2|second key
+id=59b581d9f7f8f521865b56ebed7ec5616c184171d9185ccb1a82de82fc6941db image=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 memory=536870912 swap=536870912 cpu=750000000 pids=128 log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+memory.max 536870912|
+memory.swap.max 0|
+memory.peak 32399360|
+memory.events low 0|high 0|max 0|oom 0|oom_kill 0|oom_group_kill 0|
+cpu.max 75000 100000|
+cpu.stat usage_usec 539986|user_usec 343895|system_usec 196090|core_sched.force_idle_usec 0|nr_periods 16|nr_throttled 2|throttled_usec 32983|nr_bursts 0|burst_usec 0|
+pids.max 128|
+pids.current 11|
+41392	/var/lib/postgresql
+16396	/var/lib/postgresql/18/docker/pg_wal
+/dev/vda1          8050120 4364756   3668980      55% /var/lib/postgresql
+net:[4026532266]
+pid:[4026532264]
+id=80ba277a89697376860daa7d6ba66d210c63bacc5663ddb0084e71219e53634c image=sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 memory=805306368 swap=805306368 cpu=1000000000 pids=128 log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+memory.max 805306368|
+memory.swap.max 0|
+memory.peak 135860224|
+memory.events low 0|high 0|max 0|oom 0|oom_kill 0|oom_group_kill 0|
+cpu.max 100000 100000|
+cpu.stat usage_usec 2320484|user_usec 1321764|system_usec 998720|core_sched.force_idle_usec 0|nr_periods 99|nr_throttled 1|throttled_usec 3013|nr_bursts 0|burst_usec 0|
+pids.max 128|
+pids.current 8|
+47412	/var/lib/postgresql/data
+16392	/var/lib/postgresql/data/pg_wal
+/dev/vda1          8050120 4364756   3668980      55% /var/lib/postgresql/data
+net:[4026532204]
+pid:[4026532202]
+publisher_after_drop=0 publications, 0 slots
+EXP-015 ACCEPTANCE CHECKS PASSED
+cdc-catalog stop: exited 0 false
+source-db stop: exited 0 false
+project_cleanup_exit=0
+
+=== Bounded status samples ===
+--- before-registration.json ---
+{"run_id" : "20261126t083345z-5916", "checkpoint" : "before-registration", "sampled_at_utc" : "2026-11-26T08:34:24.012113+00:00", "elapsed_ms" : 38310, "group" : null, "worker_pids" : [], "queue_metrics" : null, "mapping_overflow" : false, "mappings" : []}
+--- initial.status.json ---
+{"run_id" : "20261126t083345z-5916", "checkpoint" : "initial", "sampled_at_utc" : "2026-11-26T08:35:06.975153+00:00", "elapsed_ms" : 81280, "group" : {"name":"g25_20261126t083345z_5916","publication":"p25_20261126t083345z_5916","slot_name":"s25_20261126t083345z_5916","enabled":true,"mode":"bgworker","confirmed_lsn":"0/19E8E90","last_sync":"2026-11-26T08:35:06.901316+00:00"}, "worker_pids" : [426], "queue_metrics" : {"total_queued_bytes":0,"is_backpressured":false,"active_flushes":0,"gate_wait_avg_ms":0,"gate_timeouts":0}, "mapping_overflow" : false, "mappings" : [{"id":1,"source_table":"probe.items","target_table":"bronze.items","state":"CATCHUP","enabled":true,"rows_synced":2,"queued_changes":0,"consecutive_failures":0,"error_present":false,"last_sync":"2026-11-26T08:35:06.894603+00:00","snapshot_lsn":"0/19E8E90","applied_lsn":null,"snapshot_rows":2,"snapshot_duration_ms":146}]}
+--- stopped-worker.status.json ---
+{"run_id" : "20261126t083345z-5916", "checkpoint" : "stopped-worker", "sampled_at_utc" : "2026-11-26T08:35:07.529257+00:00", "elapsed_ms" : 81850, "group" : {"name":"g25_20261126t083345z_5916","publication":"p25_20261126t083345z_5916","slot_name":"s25_20261126t083345z_5916","enabled":false,"mode":"bgworker","confirmed_lsn":"0/19E8E90","last_sync":"2026-11-26T08:35:07.405312+00:00"}, "worker_pids" : [], "queue_metrics" : {"total_queued_bytes":0,"is_backpressured":false,"active_flushes":0,"gate_wait_avg_ms":0,"gate_timeouts":0}, "mapping_overflow" : false, "mappings" : [{"id":1,"source_table":"probe.items","target_table":"bronze.items","state":"CATCHUP","enabled":true,"rows_synced":2,"queued_changes":0,"consecutive_failures":0,"error_present":false,"last_sync":"2026-11-26T08:35:06.894603+00:00","snapshot_lsn":"0/19E8E90","applied_lsn":null,"snapshot_rows":2,"snapshot_duration_ms":146}]}
+--- recreated.status.json ---
+{"run_id" : "20261126t083345z-5916", "checkpoint" : "recreated", "sampled_at_utc" : "2026-11-26T08:35:12.041404+00:00", "elapsed_ms" : 86360, "group" : {"name":"g25_20261126t083345z_5916","publication":"p25_20261126t083345z_5916","slot_name":"s25_20261126t083345z_5916","enabled":false,"mode":"bgworker","confirmed_lsn":"0/19E8E90","last_sync":"2026-11-26T08:35:07.405312+00:00"}, "worker_pids" : [], "queue_metrics" : {"total_queued_bytes":0,"is_backpressured":false,"active_flushes":0,"gate_wait_avg_ms":0,"gate_timeouts":0}, "mapping_overflow" : false, "mappings" : [{"id":1,"source_table":"probe.items","target_table":"bronze.items","state":"CATCHUP","enabled":true,"rows_synced":2,"queued_changes":0,"consecutive_failures":0,"error_present":false,"last_sync":"2026-11-26T08:35:06.894603+00:00","snapshot_lsn":"0/19E8E90","applied_lsn":null,"snapshot_rows":2,"snapshot_duration_ms":146}]}
+--- bad-status.txt ---
+consumer status query failed
+
+=== Catalog and file observations ===
+--- initial.catalog.json ---
+{"catalog_schema": "ducklake", "options": [{"key": "data_path", "value": "/var/lib/postgresql/18/docker/pg_ducklake/", "scope": null, "scope_id": null}, {"key": "version", "value": "0.4", "scope": null, "scope_id": null}], "snapshots": [{"snapshot_id": 0, "snapshot_time": "2026-11-26T08:34:19.783123+00:00", "schema_version": 0}, {"snapshot_id": 1, "snapshot_time": "2026-11-26T08:35:06.319359+00:00", "schema_version": 1}, {"snapshot_id": 2, "snapshot_time": "2026-11-26T08:35:06.496411+00:00", "schema_version": 1}], "tables": [{"schema_name": "bronze", "schema_path": "bronze/", "schema_relative": true, "table_id": 2, "table_name": "items", "table_path": "items/", "table_relative": true, "begin_snapshot": 1, "resolved_path": "/var/lib/postgresql/18/docker/pg_ducklake/bronze/items"}], "inline_tables": [{"table_id": 2, "table_name": "ducklake_inlined_data_2_1", "schema_version": 1}], "data_files": [], "delete_files": []}
+--- before-recreation.catalog.json ---
+{"catalog_schema": "ducklake", "options": [{"key": "data_inlining_row_limit", "value": "0", "scope": "table", "scope_id": 2}, {"key": "data_path", "value": "/var/lib/postgresql/18/docker/pg_ducklake/", "scope": null, "scope_id": null}, {"key": "version", "value": "0.4", "scope": null, "scope_id": null}], "snapshots": [{"snapshot_id": 0, "snapshot_time": "2026-11-26T08:34:19.783123+00:00", "schema_version": 0}, {"snapshot_id": 1, "snapshot_time": "2026-11-26T08:35:06.319359+00:00", "schema_version": 1}, {"snapshot_id": 2, "snapshot_time": "2026-11-26T08:35:06.496411+00:00", "schema_version": 1}, {"snapshot_id": 3, "snapshot_time": "2026-11-26T08:35:07.775455+00:00", "schema_version": 1}], "tables": [{"schema_name": "bronze", "schema_path": "bronze/", "schema_relative": true, "table_id": 2, "table_name": "items", "table_path": "items/", "table_relative": true, "begin_snapshot": 1, "resolved_path": "/var/lib/postgresql/18/docker/pg_ducklake/bronze/items"}], "inline_tables": [{"table_id": 2, "table_name": "ducklake_inlined_data_2_1", "schema_version": 1}], "data_files": [{"table_id": 2, "file_id": 1, "begin_snapshot": 2, "path": "ducklake-01a216fe-8183-74f7-ae0e-7381dddf4028.parquet", "path_is_relative": true, "format": "parquet", "record_count": 2, "file_size_bytes": 1024, "resolved_path": "/var/lib/postgresql/18/docker/pg_ducklake/bronze/items/ducklake-01a216fe-8183-74f7-ae0e-7381dddf4028.parquet", "physical_size_bytes": 1024, "sha256": "16879fb099bc38447e2673e4629c723a3c34e14d187dd874980925b15fe77c26", "magic": "PAR1"}], "delete_files": []}
+--- recreated.catalog.json ---
+{"catalog_schema": "ducklake", "options": [{"key": "data_inlining_row_limit", "value": "0", "scope": "table", "scope_id": 2}, {"key": "data_path", "value": "/var/lib/postgresql/18/docker/pg_ducklake/", "scope": null, "scope_id": null}, {"key": "version", "value": "0.4", "scope": null, "scope_id": null}], "snapshots": [{"snapshot_id": 0, "snapshot_time": "2026-11-26T08:34:19.783123+00:00", "schema_version": 0}, {"snapshot_id": 1, "snapshot_time": "2026-11-26T08:35:06.319359+00:00", "schema_version": 1}, {"snapshot_id": 2, "snapshot_time": "2026-11-26T08:35:06.496411+00:00", "schema_version": 1}, {"snapshot_id": 3, "snapshot_time": "2026-11-26T08:35:07.775455+00:00", "schema_version": 1}], "tables": [{"schema_name": "bronze", "schema_path": "bronze/", "schema_relative": true, "table_id": 2, "table_name": "items", "table_path": "items/", "table_relative": true, "begin_snapshot": 1, "resolved_path": "/var/lib/postgresql/18/docker/pg_ducklake/bronze/items"}], "inline_tables": [{"table_id": 2, "table_name": "ducklake_inlined_data_2_1", "schema_version": 1}], "data_files": [{"table_id": 2, "file_id": 1, "begin_snapshot": 2, "path": "ducklake-01a216fe-8183-74f7-ae0e-7381dddf4028.parquet", "path_is_relative": true, "format": "parquet", "record_count": 2, "file_size_bytes": 1024, "resolved_path": "/var/lib/postgresql/18/docker/pg_ducklake/bronze/items/ducklake-01a216fe-8183-74f7-ae0e-7381dddf4028.parquet", "physical_size_bytes": 1024, "sha256": "16879fb099bc38447e2673e4629c723a3c34e14d187dd874980925b15fe77c26", "magic": "PAR1"}], "delete_files": []}
+
+=== Allow-listed recreated consumer logs ===
+--- recreated-auth.log ---
+2026-11-26 08:35:09.522 UTC [1] LOG:  database system is ready to accept connections
+2026-11-26 08:35:11.520 UTC [31] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:11.764 UTC [39] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:12.035 UTC [47] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:12.158 UTC [55] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:12.284 UTC [63] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:12.440 UTC [71] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+2026-11-26 08:35:13.295 UTC [136] LOG:  connection authenticated: identity="postgres" method=scram-sha-256 (/var/lib/postgresql/18/docker/pg_hba.conf:128)
+
+Guest console: EXP015_RESULT=0
+Guest power-down observed.
+
+=== Attempt 03: bridge ownership refusal ===
+owner=2.5/Codex ticket=42 run=20261126t084931z-41f2 revision=40e3bbbf35e5782d337807c04780ae7d8b6b57c7 overlay=guest-03.qcow2 project=cdc25-20261126t084931z-41f2 bridge=p2508493141f2 database=source_lab consumer_db=postgres group=g25_20261126t084931z_41f2 publication=p25_20261126t084931z_41f2 slot=s25_20261126t084931z_41f2
+Teardown incomplete at bridge ownership. Remaining assets for cdc25-20261126t084931z-41f2:
+container=97568ac990499b487cb0d96a5a10b08695cada70262abda89e1c6757d71ca86b name=cdc25-20261126t084931z-41f2-cdc-catalog-1 status=Up 4 seconds (healthy)
+container=636eba65e3ebf1745723bbb2346fed4d570e18860defde928704e4e19175cb49 name=cdc25-20261126t084931z-41f2-source-db-1 status=Up About a minute (healthy)
+volume=cdc25-20261126t084931z-41f2_cdc-pg
+volume=cdc25-20261126t084931z-41f2_source-pg
+network=32eeb78eeaaa95bd9c6bc8abc7dbab7b5ebba32a307205d7ebf8805893cf9878 name=cdc25-20261126t084931z-41f2-input
+bridge=p2508493141f2 present
+rule=iptables INPUT bridge=p2508493141f2 present
+rule=iptables DOCKER-USER bridge=p2508493141f2 present
+rule=ip6tables INPUT bridge=p2508493141f2 present
+rule=ip6tables DOCKER-USER bridge=p2508493141f2 present
+Guest console: EXP015_RESULT=1
+
+=== Attempt 04: teardown failure control and checked retry ===
+owner=2.5/Codex ticket=42 run=20261126t085149z-50b1 revision=0db3e925b25bd46816f68c3c075300206d85e571 overlay=guest-04.qcow2 project=cdc25-20261126t085149z-50b1 bridge=p2508514950b1 database=source_lab consumer_db=postgres group=g25_20261126t085149z_50b1 publication=p25_20261126t085149z_50b1 slot=s25_20261126t085149z_50b1
+Injected Compose stop failure for cdc-catalog
+Teardown incomplete at consumer stop. Remaining assets for cdc25-20261126t085149z-50b1:
+container=c0eb4df64aedef0e1eb6d6a83df3338bbe982cdd2c274ca30b1527f0f8e32465 name=cdc25-20261126t085149z-50b1-cdc-catalog-1 status=Up 4 seconds (healthy)
+container=f7e6ae75775879f635919eaa61b74a9fe6abe98b6ab245de568ec4abbca784a4 name=cdc25-20261126t085149z-50b1-source-db-1 status=Up About a minute (healthy)
+volume=cdc25-20261126t085149z-50b1_cdc-pg
+volume=cdc25-20261126t085149z-50b1_source-pg
+network=dedccdc284065867f198ed74e3ea3d0546ea00652ac546fc9cc1bcc9661985f7 name=cdc25-20261126t085149z-50b1-input
+bridge=p2508514950b1 present
+endpoint= c0eb4df64aedef0e1eb6d6a83df3338bbe982cdd2c274ca30b1527f0f8e32465 cdc25-20261126t085149z-50b1-cdc-catalog-1
+endpoint= f7e6ae75775879f635919eaa61b74a9fe6abe98b6ab245de568ec4abbca784a4 cdc25-20261126t085149z-50b1-source-db-1
+
+rule=iptables INPUT bridge=p2508514950b1 present
+rule=iptables DOCKER-USER bridge=p2508514950b1 present
+rule=ip6tables INPUT bridge=p2508514950b1 present
+rule=ip6tables DOCKER-USER bridge=p2508514950b1 present
+Failed teardown: dual-stack INPUT and forwarding rule order verified
+Host positive 172.18.0.1: expected marker
+Failed teardown: consumer host connection denied at 172.18.0.1
+Host positive fdfa:653f:4c09::1: expected marker
+Failed teardown: consumer host connection denied at fdfa:653f:4c09::1
+EXP-015 ACCEPTANCE CHECKS PASSED
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopping
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopped
+cdc-catalog stop: exited 0 false
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopped
+source-db stop: exited 0 false
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopping
+ Container cdc25-20261126t085149z-50b1-source-db-1  Stopped
+ Container cdc25-20261126t085149z-50b1-source-db-1  Removing
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Stopped
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Removing
+ Container cdc25-20261126t085149z-50b1-source-db-1  Removed
+ Container cdc25-20261126t085149z-50b1-cdc-catalog-1  Removed
+ Volume cdc25-20261126t085149z-50b1_cdc-pg  Removing
+ Volume cdc25-20261126t085149z-50b1_source-pg  Removing
+ Volume cdc25-20261126t085149z-50b1_cdc-pg  Removed
+ Volume cdc25-20261126t085149z-50b1_source-pg  Removed
+dedccdc284065867f198ed74e3ea3d0546ea00652ac546fc9cc1bcc9661985f7
+Project containers, volumes, bridge and firewall rules removed
+project_cleanup_exit=0
+Guest console: EXP015_RESULT=0

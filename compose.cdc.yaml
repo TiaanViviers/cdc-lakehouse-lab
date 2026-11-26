@@ -1,0 +1,77 @@
+services:
+  cdc-catalog:
+    profiles: [cdc]
+    image: docker.io/pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+    platform: linux/amd64
+    pull_policy: never
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/cdc_consumer_password
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    command:
+      - postgres
+      - -c
+      - max_connections=20
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - max_replication_slots=2
+      - -c
+      - max_wal_senders=2
+      - -c
+      - log_connections=on
+      - -c
+      - duckpipe.query_routing=off
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - duckdb.threads=1
+      - -c
+      - duckdb.memory_limit=96MB
+      - -c
+      - duckdb.temporary_directory=/tmp/duckdb-cdc
+      - -c
+      - duckdb.max_temp_directory_size=48MiB
+      - -c
+      - log_min_error_statement=panic
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          password=$$(cat "$$POSTGRES_PASSWORD_FILE") &&
+          PGPASSWORD="$$password" PGREQUIREAUTH=scram-sha-256 PGCONNECT_TIMEOUT=2
+          PGOPTIONS="-c statement_timeout=1500"
+          psql -h cdc-catalog -U postgres -d postgres
+          -XqAtw -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 15s
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: '3'
+    networks: [source-input]
+    volumes:
+      - cdc-pg:/var/lib/postgresql
+    secrets: [cdc_consumer_password]
+
+volumes:
+  cdc-pg:
+
+secrets:
+  cdc_consumer_password:
+    file: ./secrets/cdc-catalog-password
+
+networks:
+  source-input:
+    external: true
+    name: ${SOURCE_INPUT_ID:?set SOURCE_INPUT_ID to the verified full Engine network ID}
