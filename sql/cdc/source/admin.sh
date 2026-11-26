@@ -17,7 +17,7 @@ fi
 operation=${1:?specify the independent probe operation}
 shift
 case "$operation" in
-    inventory|prepare|permission-probe|ownership-probe|publish|drop-publication|create-slot|reject-publication|snapshot-slot-probe|drop-slot|drop-role|enable-login|disable-login) ;;
+    inventory|prepare|permission-probe|ownership-probe|publish|drop-publication|create-slot|reject-publication|snapshot-slot-probe|drop-slot|drop-role|enable-login|disable-login|elevate|reduce|restore-identity) ;;
     *) printf 'Unknown publisher probe operation %s\n' "$operation" >&2; exit 2 ;;
 esac
 variables=()
@@ -40,7 +40,7 @@ case "$operation" in
         [[ $# == 2 && $1 =~ ^[0-9A-F]+/[0-9A-F]+$ && $2 =~ ^[0-9A-F]+/[0-9A-F]+$ ]]
         variables=(-v "created_restart_lsn=$1" -v "created_flush_lsn=$2")
         ;;
-    drop-role|enable-login|disable-login)
+    drop-role|enable-login|disable-login|elevate|reduce|restore-identity)
         [[ $# == 1 && $1 =~ ^[0-9]+$ ]]
         variables=(-v "created_role_oid=$1")
         if [[ $operation == *-login ]]; then
@@ -78,7 +78,7 @@ PYTHON
 {
     cat "$here/guard.sql"
     cat "$here/$sql_file.sql"
-} | "${docker[@]}" exec -i "$cid" sh -ec '
+} | timeout -k 2s 20s "${docker[@]}" exec -i "$cid" sh -ec '
     PGPASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
     export PGPASSWORD PGCONNECT_TIMEOUT=3 PGREQUIREAUTH=scram-sha-256 LC_ALL=C
     exec psql -XwqAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -h 127.0.0.1 -U source_admin -d source_lab "$@" -f -
