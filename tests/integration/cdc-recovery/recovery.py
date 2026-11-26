@@ -429,10 +429,15 @@ class Recovery(Experiment):
         system = self.sql("new consumer system ID", "SELECT system_identifier FROM pg_control_system();", target=True)
         require(self.consumer_id != old_id and volume != self.original_volume and system != self.consumer_system,
                 "consumer resnapshot did not start from a fresh volume")
-        require(self.sql("empty new catalog", """
-            SELECT (SELECT count(*) FROM duckpipe.sync_groups) = 0
-                   AND to_regnamespace('bronze') IS NULL;
-        """, target=True) == "t", "consumer catalog was not empty")
+        empty = self.sql("fresh catalog inventory", """
+            SELECT (SELECT count(*) FROM duckpipe.sync_groups),
+                   (SELECT count(*) FROM duckpipe.table_mappings),
+                   (SELECT count(*) FROM pg_class
+                    WHERE relnamespace=to_regnamespace('bronze') AND relkind IN ('r','p','v','m','f')),
+                   to_regnamespace('bronze') IS NOT NULL;
+        """, target=True)
+        self.event("resnapshot", "fresh_catalog_inventory", groups_mappings_relations_and_namespace=empty)
+        require(empty.split("|")[:3] == ["0", "0", "0"], "consumer catalog contains prior state")
         self.event("resnapshot", "fresh_consumer", system_identifier=system, volume=volume, container=self.consumer_id)
         self.controller("elevate", self.oid)
         self.controller("enable-login", self.oid)
