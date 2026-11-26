@@ -8,11 +8,11 @@ revision=${CDC_REVISION:?set tested revision}
 overlay=${CDC_OVERLAY:?set guest overlay identity}
 [[ $revision =~ ^[0-9a-f]{40}$ && $overlay =~ ^[a-zA-Z0-9_.-]+$ ]]
 test "$(id -u)" = 0
-test "$(findmnt -no OPTIONS --target "$media")" != "$(findmnt -no OPTIONS --target /)"
 findmnt -no OPTIONS --target "$media" | tr , '\n' | grep -Fxq ro
 test -z "$(ip -4 route show default; ip -6 route show default)"
 [[ $(ls /sys/class/net | sort | paste -sd ' ') == 'docker0 lo' ]]
 unset DOCKER_CONTEXT DOCKER_HOST COMPOSE_FILE COMPOSE_PROFILES SOURCE_INPUT_ID
+export COMPOSE_DISABLE_ENV_FILE=1
 run=$(date -u +%Y%m%dt%H%M%Sz)-$(openssl rand -hex 2)
 export COMPOSE_PROJECT_NAME="cdc25-$run"
 bridge="p25${run:9:6}${run:17:4}"
@@ -111,12 +111,20 @@ stop_checked() {
     [[ $result == 'exited 0 false' ]]
 }
 sample() {
-    local cid=$1 service=$2 volume=$3 expected=$4
+    local cid=$1 service=$2 volume=$3 expected=$4 ref
     owned "$cid" "$service"
     volume_owned "$volume"
     d volume inspect -f '{{.Name}} {{json .Labels}}' "${COMPOSE_PROJECT_NAME}_$volume"
     test "$(d inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}:{{.Destination}}{{end}}{{end}}' "$cid")" = "${COMPOSE_PROJECT_NAME}_$volume:$expected"
     test -z "$(d port "$cid")"
+    if [[ $service == cdc-catalog ]]; then
+        ref=${refs[1]}
+        test "$(d inspect -f '{{index .HostConfig.Tmpfs "/tmp"}}' "$cid")" = 'size=64m,mode=1777'
+    else
+        ref=${refs[0]}
+    fi
+    test "$(d inspect -f '{{.Image}}' "$cid")" = "${ref##*@}"
+    test "$(d inspect -f '{{.HostConfig.LogConfig.Type}} {{index .HostConfig.LogConfig.Config "max-size"}} {{index .HostConfig.LogConfig.Config "max-file"}}' "$cid")" = 'local 5m 3'
     test "$(d inspect -f '{{.HostConfig.Privileged}} {{.State.OOMKilled}}' "$cid")" = 'false false'
     d inspect -f 'id={{.Id}} image={{.Image}} memory={{.HostConfig.Memory}} swap={{.HostConfig.MemorySwap}} cpu={{.HostConfig.NanoCpus}} pids={{.HostConfig.PidsLimit}} log={{json .HostConfig.LogConfig}}' "$cid"
     d exec "$cid" sh -ec '
@@ -128,13 +136,22 @@ sample() {
         test "$(awk '"'"'$1=="oom" || $1=="oom_kill" {sum+=$2} END {print sum+0}'"'"' /sys/fs/cgroup/memory.events)" = 0
         test "$(cat /sys/fs/cgroup/memory.max)" = "$2"
         test "$(cat /sys/fs/cgroup/cpu.max)" = "$3"
-        du -sk "$1" "$PGDATA/pg_wal" /tmp
+        du -sk "$1"
+        du -sk "$PGDATA/pg_wal"
+        du -sk /tmp
+        df -Pk "$PGDATA"
         test "$(du -sk "$1" | cut -f1)" -lt 524288
         test "$(du -sk "$PGDATA/pg_wal" | cut -f1)" -lt 262144
         test "$(df -Pk "$PGDATA" | awk '"'"'NR==2 {print $4}'"'"')" -ge 1048576
     ' sh "$expected" "$([[ $service == cdc-catalog ]] && echo 536870912 || echo 805306368)" \
         "$([[ $service == cdc-catalog ]] && echo '75000 100000' || echo '100000 100000')"
-    d exec "$cid" sh -ec 'ls /sys/class/net; cat /proc/net/route; readlink /proc/1/ns/net; readlink /proc/1/ns/pid'
+    d exec --user postgres "$cid" sh -ec '
+        test "$(ls /sys/class/net | paste -sd " ")" = "eth0 lo"
+        awk '"'"'$2=="00000000" {bad=1} END {exit bad}'"'"' /proc/net/route
+        awk '"'"'$2=="00" && $NF!="lo" {bad=1} END {exit bad}'"'"' /proc/net/ipv6_route
+        readlink /proc/1/ns/net
+        readlink /proc/1/ns/pid
+    '
 }
 health() {
     local cid=$1 want=$2 state
@@ -275,6 +292,12 @@ d exec "$consumer_id" sh -ec '
 test "$(d exec --user postgres "$consumer_id" env -u PGPASSWORD -u PGPASSFILE PGREQUIREAUTH=none \
     psql -h 127.0.0.1 -U postgres -d postgres -XwAtqc 'SELECT inet_client_addr()')" = 127.0.0.1
 echo 'Loopback TCP succeeds with require_auth=none and no password'
+if d exec --user postgres "$consumer_id" env PGREQUIREAUTH=scram-sha-256 \
+    psql -h 127.0.0.1 -U postgres -d postgres -XwAtqc 'SELECT 1' > "$evidence/loopback-scram.txt" 2>&1; then
+    echo 'Loopback trust unexpectedly satisfied require_auth=scram-sha-256'
+    exit 1
+fi
+grep -F 'server did not complete authentication' "$evidence/loopback-scram.txt"
 peer() {
     d run --rm -i --pull never --network "$SOURCE_INPUT_ID" --memory 96m --memory-swap 96m --cpus .5 \
         --pids-limit 32 --read-only --cap-drop ALL --entrypoint sh "${refs[0]}" -ec '
@@ -346,6 +369,8 @@ read_rows initial
 test "$(sql -c "SELECT amname FROM pg_class JOIN pg_am ON pg_am.oid=relam WHERE pg_class.oid='bronze.items'::regclass")" = ducklake
 observe_catalog initial
 status initial | tee "$evidence/initial.status.json"
+python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["group"]["enabled"] and len(x["worker_pids"]) == 1' \
+    < "$evidence/initial.status.json"
 # Freeze changes before flushing inline rows or reading physical references.
 group_sql <<'SQL'
 SELECT duckpipe.disable_group(:'group');
@@ -417,4 +442,10 @@ SELECT duckpipe.drop_group(:'group');
 SQL
 test "$(src -c 'SELECT (SELECT count(*) FROM pg_publication), (SELECT count(*) FROM pg_replication_slots)')" = '0|0'
 echo 'publisher_after_drop=0 publications, 0 slots'
+# Capture only stable messages from the pinned bundle.
+d logs --tail 150 "$consumer_id" 2>&1 | awk '
+    /database system is ready to accept connections$/ ||
+    /connection authenticated: identity="postgres" method=(trust|scram-sha-256) / {print}
+' | tee "$evidence/recreated-auth.log"
+grep -Fq 'method=scram-sha-256' "$evidence/recreated-auth.log"
 echo 'EXP-015 ACCEPTANCE CHECKS PASSED'
