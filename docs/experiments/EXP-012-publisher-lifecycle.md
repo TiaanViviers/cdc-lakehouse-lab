@@ -2,9 +2,10 @@
 
 - **Date** 2026-11-26
 - **Research question IDs** R01, R02, R04, R05
-- **Status** Planned. Independent preparation is in place. Runtime observations are pending.
-- **Git baseline** `d9de734` on `feature/2.2-publisher-access`
+- **Status** Passed for the scoped publisher lifecycle
+- **Git baseline** `500c213` (merged 2.1) on `feature/2.2-publisher-access`
 - **Source version** PostgreSQL 16.16, stock Bookworm image at index digest `sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37` as pinned in `compose.source.yaml`. [Phase 1 image and runtime evidence](EXP-004-source-profile.md)
+- **Consumer version** PostgreSQL 18.4, `pg_duckpipe` 1.0.0 at source commit `86d5c248d80370fb2e10ddc1abd780fd94c3a52b`, bundled `pg_ducklake` 0.1.0 and `pg_duckdb` 1.1.0 from the May image index `sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348`. [Reviewed 2.1 image provenance](EXP-011-remote-pg16-probe.md#image-provenance)
 
 ## Hypothesis
 
@@ -20,7 +21,7 @@ Use a fresh enrolled source clone on the disconnected guest with one verified br
 2. Evaluate correct and wrong-password SCRAM, allowed and denied database/replication classes, scoped SQL grants and unrelated reader restrictions. Observe the actual matched HBA rule and capture SQLSTATEs with separate authenticated sessions.
 3. Exercise temporary ownership and the database CREATE grant for publication construction. Require exact fixture business-table membership, owner, primary-key replica identity, receipt isolation and successful writer/reader operations during elevation. Compare owner, identity and ACL after rollback or restoration.
 4. Create one persistent pgoutput slot. Observe its survival after denied publication creation, guarded deletion, repeat setup refusal and collisions. Observe the temporary second position and rejection of a third. Verify active, wrong endpoint and unrelated-object refusals. Confirm both inventories return to baseline after authorized teardown.
-5. After a reviewed supported 2.1 outcome, repeat on a fresh four-table clone with the verified connector role and build. Capture its publication owner, actual snapshot-slot and persistent-slot lifetimes, setup and failure ordering, apply and reconnect after attempted privilege reduction, exact source and target state at the required hold points, and stopped-consumer teardown. Run the existing fixture checks again once ownership and grants have been restored.
+5. Use the reviewed 2.1 connector on the enrolled clone after the source-only checks. Capture its publication owner, actual snapshot-slot and persistent-slot lifetimes, setup and failure ordering, apply and reconnect after attempted privilege reduction, exact source and target state at the required hold points, and stopped-consumer teardown. Run the existing fixture checks again once ownership and grants have been restored.
 
 The [source procedure](../cdc-source.md) contains commands, expected diagnostics and the evidence collection sequence for the independent tests.
 
@@ -30,19 +31,38 @@ Reviewed 2026-11-26 against PostgreSQL 16 documentation and the `REL_16_16` sour
 
 ## Actual observations
 
-- `bash -n sql/cdc/source/admin.sh` passed.
-- `make check BASE=origin/main` passed.
-- `make test-unit` passed all 24 tests.
-- `sh tests/repository-checks.sh` passed all five cases.
-- The wrong-project shell guard refused before invoking a Docker or PostgreSQL client in an offline invocation.
-- Publisher SQL, HBA and fixture regression observations from the scheduled PG16 VM remain pending. The native trial is designed to leave connector findings and connector acceptance open.
+Offline `make check BASE=origin/main`, `make test-unit` (24 tests), `sh tests/repository-checks.sh` (five cases) and `bash -n sql/cdc/source/{admin,run-exp012}.sh` passed. The wrong-project shell guard refused before invoking a client.
+
+**Attempt 02.** SHA `b9e03f369a15f842a60069644bf31a7f8a50cefa` in `guest-02.qcow2` began at 08:29:03 UTC after the preceding scheduled VM sessions. The isolation gate, Phase 1 schema regression, publisher SQL denials, authentication and native slot tests passed. DuckPipe's denied CREATE produced `remote create publication: db error`, one inactive pgoutput slot and zero source publications. The harness then stopped at an incorrect zero-count assertion across all consumer groups. The image initializes a `default` group. Attempt 03 scopes that assertion to the experiment group. Compose removed the attempt 02 containers, volumes and bridge.
+
+**Passing attempt 03.** SHA `9ad703d3841e5437ddc3a8ca7c2418c6fa1ec5fa` in `guest-03.qcow2` began at 08:30:54 UTC. The run used project `cdc22-r20261126t083054z`, bridge ID `78f45ef1f79b64cb711a369138ade50d7dff3e113b627b7652e534fb7c5e0b3f` and separate labelled `source-pg` and `probe-pg` volumes. Read-only media checksums and pinned image index checks passed. Both containers had one endpoint on the isolated bridge and zero published ports. The two-vCPU, 2 GiB guest had no NIC. The measured peaks were 236,965,888 bytes for PG16 and 123,572,224 bytes for PG18, with no OOM events. The largest volume samples were 47,608 and 41,428 KiB respectively. Allocated WAL stayed below 256 MiB at each check, and the smallest free-space sample was 3,667,832 KiB.
+
+| Check | Observed result |
+| --- | --- |
+| Source fixture gate before provisioning | The existing schema suite checked exact full rows and receipts, owner/ACL equality after repeat bootstrap, writer and reader denials, foreign key and uniqueness failures, guards for wrong or missing reset identity, reset rollback, and committed cleanup. The later source seed under elevated ownership matched the exact Phase 1 probe rows. |
+| Baseline publisher grants and SCRAM | Role OID `16467` had LOGIN and REPLICATION, with no superuser, role creation, database creation, BYPASSRLS or membership in the fixture owner. Its grants were CONNECT to `source_lab`, fixture USAGE and SELECT on the four business tables. A new IPv6 connection from the bridge returned the expected user and database and logged `method=scram-sha-256` at HBA line 2. Both bridge subnets had scoped SCRAM records. Wrong password, alternate database and physical startup failed. The fixture reader could make its ordinary SQL connection and received `permission denied to start WAL sender` for logical startup and `42501` for publisher impersonation. |
+| Unrelated access | The publisher role received `42501` for receipt and enrollment reads/writes, business DML and DDL at baseline and after reduction, schema CREATE, fixture reset execution and assuming the fixture owner. During elevation the four business tables were publisher-owned. The fixture schema, enrollment and receipt stayed under the fixture owner. |
+| Cap and temporary slot | The native inventory showed the persistent slot `temporary=f,active=f` and the second slot `temporary=t,active=t` with the creating backend as its active PID. The third allocation returned `53400`. Only the persistent slot remained after that session. The four serial DuckPipe COPY trials then logged calls with `temporary=true` and consistent points `0/19AE058`, `0/19AE6F0`, `0/19AED50` and `0/19AF3B0` from four distinct source backends between 08:31:48 and 08:31:52 UTC. The completed registration inventory had just the persistent slot. |
+| Failed onboarding and collisions | With database CREATE absent, source logs showed `permission denied for database source_lab`. DuckPipe failed publication creation, with no named consumer group or source publication but one orphan inactive pgoutput slot. The guarded drop removed it. A separate attempt hit a same-name administrator-owned one-table publication after allocating its slot. Guarded cleanup removed just the newly recorded slot and refused the publication. Its original OID, owner and membership still matched. The harness removed its own sentinel. A repeated successful group setup attempt failed at slot creation, and a repeated role setup failed with `42710`. |
+| Publication and exact initial values | Publication OID `16475` belonged to the publisher, with four unfiltered tables `customers`, `orders`, `order_items` and `payments`. All four retained their valid primary keys and moved from DEFAULT to FULL. Full ordered target projections matched all source columns and values at keys 901, 910, 911 and 912 respectively, with receipt and installation mappings absent. Parity took 0, 1, 1 and 1 seconds as measured by the runner. |
+| Privilege reduction and reconnect | Restored all four table owners to `source_fixture_owner`, retained explicit table SELECT, revoked database CREATE and kept the publication owner and FULL identities. The receipt and enrollment were still inaccessible. As the real fixture writer, changed item 911 quantity from 2 to 3. The same target row matched exactly after 6 seconds. After a consumer stop/start, a fresh walsender logged SCRAM on line 2 and started the same slot at `0/19AE090`. The writer's next committed quantity 4 reached exact parity after 5 seconds. |
+| Refusal and final teardown | Cleanup refused the wrong project, wrong SQL database, wrong slot fingerprint, same-name physical slot, active logical slot and unrelated publication. With the consumer stopped and the publisher disabled, the tracked slot was inactive with restart/flush `0/19AE058` and `0/19AE090`. Publication drop refused while the slot existed. Guarded teardown then removed the exact slot and publication and verified zero of each. The final owner, ACL, role, HBA and identity inventory matched baseline byte for byte. The original writer then ran the enrolled reset and the reader saw all five fixture relations empty, including receipts. The test and project teardown both exited 0. |
+
+The exact item row after reconnect was `911|910|1|Test|4|0|2026-02-01 00:00:00+00|2026-02-02 00:00:00+00`. All other compared business values came from the existing synthetic Phase 1 probe. The publication owner and the initial/reduced table ownership and column ACLs are recorded in the catalog captures.
 
 ## Evidence artifacts
 
-Capture runtime output under `artifacts/EXP-012/<UTC-run-id>/` with a checksummed manifest. Include the before/during/after catalog, roles, ACLs, replica identities, allowed HBA metadata, SQLSTATE and matching audit lines, source data assertions, observed slot state and resource samples. Record local tested SHA, VM overlay, resolved config and image IDs. Keep passwords, verifiers, raw conninfo and unfiltered logs outside evidence.
+Reproduce with the [offline command and source contract](../cdc-source.md#reproduce-exp-012). The source-only and connector assertions are in [the experiment runner](../../sql/cdc/source/run-exp012.sh). The preserved guest files are under ignored `artifacts/EXP-012/20261126t083054z/`. The transferred archive SHA-256 is `975c5928a4cf3c93c3ac753b8045cc153ed7631327c4231052240e3c0d323e25`. The per-file `SHA256SUMS` hash is `a254b2e2f1fb631480611554aceb94c66c8cf85bfe27806eebdd69a66f922980`.
 
-## Decision, limitations and open questions
+The evidence includes `before.txt`, `prepared.txt`, `elevated.txt`, `registered.txt`, `reduced.txt`, `after.txt`, exact row comparisons, `slot-inventory.txt`, the Phase 1 fixture regression, isolated failure outputs, sampled resource data and allow-listed source and consumer audit lines. Run `sha256sum -c SHA256SUMS` from that evidence directory.
 
-Use the Phase 1 enrollment in addition to Engine identity guards. The native test slot fingerprint is based on the exact recorded creation LSNs and source identity. LSNs can advance and do not serve as a permanent ownership proof. A cluster reserved to one experiment, unique names, exclusive lifecycle operations and stopped peers are prerequisites for cleanup. The actual connector lifecycle and maintenance-grant reduction remain open pending the 2.1 result and the later end-to-end trial.
+## Interpretation, limits and research handoff
 
-R01, R02, R04 and R05 retain their current research status. Any verified status changes belong in the final EXP-012 observations for 2.9's research-register reconciliation.
+- **R01.** The pinned build supports the four-table source role under the tested cluster and HBA boundary. Database CREATE and temporary table ownership were sufficient for registration. Steady-state apply and a fresh connection worked after both grants were removed. Database CREATE can permit creation of new schemas while elevated, so the elevation is reserved for the isolated onboarding window.
+- **R02.** Four serial initial copies and their exact rows passed with one persistent slot and one available temporary position. Temporary allocations were observed through server logs for DuckPipe and live catalog rows for the native PG16 cap trial. Concurrent snapshot behavior remains open.
+- **R04.** A real failed publication attempt left an orphan slot. Exact reconciliation and stopped-consumer cleanup are needed. The steady-state test preserved the same tracked slot across reconnect. Durable acknowledgement and interrupted replay remain Phase 2 recovery work.
+- **R05.** Source slot count, WAL guard and guest budgets held for this bounded run. A retention-limit crossing is a separate experiment.
+
+PG16 supplies no slot owner or immutable creation ID. Reserve the cluster and names to one experiment and retain continuous creation/activity/stop evidence. Use the recorded post-stop LSN pair only for that continuously tracked slot. A fresh inventory alone cannot establish ownership or authorize adoption. Source table replica identities stay FULL until the exact publication and slot are removed. The stopped consumer used here belongs to the disposable experiment and its volume is removed after source cleanup.
+
+The research register remains owned by the Phase 2 gate. This record supplies the observations for its reconciliation.
