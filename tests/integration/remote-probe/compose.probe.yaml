@@ -1,0 +1,51 @@
+services:
+  probe-consumer:
+    image: docker.io/pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+    platform: linux/amd64
+    pull_policy: never
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/probe_consumer_password
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    command:
+      - postgres
+      - -c
+      - max_connections=20
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - max_replication_slots=2
+      - -c
+      - max_wal_senders=2
+      - -c
+      - log_connections=on
+      - -c
+      - log_min_error_statement=panic
+    healthcheck:
+      test: ["CMD", "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres", "-XqAtw", "-c", "SELECT 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: '3'
+    networks: [source-input]
+    volumes:
+      - probe-pg:/var/lib/postgresql
+    secrets: [probe_consumer_password]
+
+volumes:
+  probe-pg:
+
+secrets:
+  probe_consumer_password:
+    file: ./secrets/probe-consumer-password
