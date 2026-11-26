@@ -308,13 +308,16 @@ SQL
 } | source_sql 2>&1 | redact | tee "$evidence/source-scope.txt"
 publisher_identity=$(source_sql -c 'SELECT system_identifier FROM pg_control_system()')
 grep -Fxq 'scope|t|f|f|f|f|t|f|f|f' "$evidence/source-scope.txt"
-subnet=$(docker_local network inspect "$SOURCE_INPUT_ID" -f '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' | awk '/\./ {print}')
-[[ $subnet =~ ^[0-9.]+/[0-9]+$ ]] || fail "unexpected IPv4 subnet"
+subnets=$(docker_local network inspect "$SOURCE_INPUT_ID" -f '{{range .IPAM.Config}}{{println .Subnet}}{{end}}')
+ipv4=$(awk '/[.]/ {print}' <<< "$subnets")
+ipv6=$(awk '/:/ {print}' <<< "$subnets")
+[[ $ipv4 =~ ^[0-9.]+/[0-9]+$ && $ipv6 =~ ^[0-9a-f:]+/[0-9]+$ ]] || fail "unexpected source subnets"
 docker_local exec -i "$source_id" sh -ec '
     { cat; cat "$PGDATA/pg_hba.conf"; } > "$PGDATA/pg_hba.conf.probe"
     mv "$PGDATA/pg_hba.conf.probe" "$PGDATA/pg_hba.conf"
 ' <<HBA
-host source_lab probe_replicator $subnet scram-sha-256
+host source_lab probe_replicator $ipv4 scram-sha-256
+host source_lab probe_replicator $ipv6 scram-sha-256
 host all probe_replicator all reject
 host replication probe_replicator all reject
 HBA
