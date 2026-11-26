@@ -1,0 +1,438 @@
+=== Run, images and bridge ===
+owner=2.1/Codex ticket=38 run=20261126t081522z revision=949b093298a85e11a042e2cbd2376ce4a09d591f overlay=guest-05.qcow2 project=cdc21-20261126t081522z bridge=p21081522 db=source_lab group=g21_20261126t081522z publication=pub21_20261126t081522z slot=slot21_20261126t081522z
+Linux 6.8.0-147-generic
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+Budget: run 480s, checkpoint 60s, polls every 500ms after a read, WAL <256MiB, each PG volume <512MiB, consumer /tmp 64MiB, guest free >=1GiB
+engine=29.1.3
+Docker Compose version 2.40.3+ds1-0ubuntu1~24.04.1
+cgroup=2 firewall={"Driver":"iptables"}
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP>
+docker0          DOWN           06:c3:d6:db:87:64 <NO-CARRIER,BROADCAST,MULTICAST,UP>
+Loaded image: postgres@sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37
+Loaded image: pgducklake/pipe-ci-builds@sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348
+Loaded image: public.ecr.aws/supabase/postgres-meta:v0.96.6
+source index=sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 amd64=sha256:d755a91aff87574a57060f86ecc0d55f83ccb51ceec6ec6f904c1210d018d998 config=sha256:76500a7555b1f245546af93974bb208366013cf537fa3038f0bdd493efe0c612
+consumer index=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 amd64=sha256:de0a9036fd11a75eaff23508209c2cea675d081aecea51f60cdca78c0802a5a6 config=sha256:a0452c3a54190ba6eeaf94dd3e434f97fd3862944c73b3f681f85eb8e3b2f56e
+c7a6d337aaf8c0b5bb1e6c06d9855bcada26107601de7a3a2f329a3be6511b78 cdc21-20261126t081522z-input bridge internal=true ipv6=true [{"Gateway":"172.18.0.1","IPRange":"","Subnet":"172.18.0.0/16"},{"Gateway":"fdfa:653f:4c09::1","IPRange":"","Subnet":"fdfa:653f:4c09::/64"}]
+All container ports unpublished
+peer DNS+TCP: PASS cdc-isolation-v1 (0.11s)
+host: PASS ETIMEDOUT (1.60s)
+host IPv6: PASS ETIMEDOUT (1.59s)
+LAN IPv4 positive: PASS cdc-isolation-v1 (0.08s)
+LAN IPv4: PASS ENETUNREACH (0.08s)
+IPv6 positive: PASS cdc-isolation-v1 (0.08s)
+IPv6: PASS ENETUNREACH (0.09s)
+delegated DNS positive: PASS 172.19.0.2 (0.21s)
+delegated DNS: PASS ESERVFAIL (0.08s)
+VPN IPv4 positive: PASS cdc-isolation-v1 (0.08s)
+VPN IPv4: PASS ENETUNREACH (0.08s)
+PASS: source bridge probes and required IPv4/IPv6 rules verified
+net:[4026532204]
+pid:[4026532202]
+net:[4026532266]
+pid:[4026532264]
+id=0c9228cb69ff75b4a9ee974786fe8e0959170fe9120edc0f6c65da0e530acd1d image=sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 host_pid=3054 oom=false memory=805306368 swap=805306368 cpu=1000000000 pids=128 ports={} privileged=false log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+cdc21-20261126t081522z_source-pg {"com.docker.compose.config-hash":"55df54a01fe72fce6b4e1654b40218955be08e76fe7867e8c8481ed0ecb2ca5c","com.docker.compose.project":"cdc21-20261126t081522z","com.docker.compose.version":"2.40.3","com.docker.compose.volume":"source-pg"}
+id=7460f612979596f1ef216e3e5a1fe6bde9ddf1ead63694f5e7a029af5ee7077d image=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 host_pid=3609 oom=false memory=536870912 swap=536870912 cpu=750000000 pids=128 ports={} privileged=false log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+cdc21-20261126t081522z_probe-pg {"com.docker.compose.config-hash":"ebccc485c5822914e4a69f6f0ac814efc994bf350287e8a51865998c5a6926c3","com.docker.compose.project":"cdc21-20261126t081522z","com.docker.compose.version":"2.40.3","com.docker.compose.volume":"probe-pg"}
+config|{"drain_poll_ms":100,"duckdb_buffer_memory_mb":16,"duckdb_flush_memory_mb":96,"duckdb_threads":1,"flush_interval_ms":5000,"flush_batch_threshold":50000,"max_concurrent_flushes":1,"max_queued_bytes":1048576}
+id=7460f612979596f1ef216e3e5a1fe6bde9ddf1ead63694f5e7a029af5ee7077d image=sha256:091236d2acecfec1216817aff6e43dc4c036159cebe44a19c73c95c1fe9be348 host_pid=3609 oom=false memory=536870912 swap=536870912 cpu=750000000 pids=128 ports={} privileged=false log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+cdc21-20261126t081522z_probe-pg {"com.docker.compose.config-hash":"ebccc485c5822914e4a69f6f0ac814efc994bf350287e8a51865998c5a6926c3","com.docker.compose.project":"cdc21-20261126t081522z","com.docker.compose.version":"2.40.3","com.docker.compose.volume":"probe-pg"}
+id=0c9228cb69ff75b4a9ee974786fe8e0959170fe9120edc0f6c65da0e530acd1d image=sha256:cd0e9518bda5f2ea667ff84d22795d089720c883f288e215d97ce57437e8ef37 host_pid=3054 oom=false memory=805306368 swap=805306368 cpu=1000000000 pids=128 ports={} privileged=false log={"Config":{"max-file":"3","max-size":"5m"},"Type":"local"}
+cdc21-20261126t081522z_source-pg {"com.docker.compose.config-hash":"55df54a01fe72fce6b4e1654b40218955be08e76fe7867e8c8481ed0ecb2ca5c","com.docker.compose.project":"cdc21-20261126t081522z","com.docker.compose.version":"2.40.3","com.docker.compose.volume":"source-pg"}
+
+=== Version, HBA and fresh authentication checks ===
+Consumer versions, HBA and actual preload libraries
+PostgreSQL 18.4 (Debian 18.4-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+pg_duckdb,pg_ducklake,pg_duckpipe
+/var/lib/postgresql/18/docker/pg_hba.conf
+scram-sha-256
+off
+pg_duckdb|1.1.0
+pg_ducklake|0.1.0
+pg_duckpipe|1.0.0
+plpgsql|1.0
+
+NOTICE:  result: "version"()
+VARCHAR
+[ Rows: 1]
+v1.5.1
+
+
+duckdb.max_temp_directory_size|48MiB||command line
+duckdb.memory_limit|96|MB|command line
+duckdb.threads|1||command line
+duckdb.unsafe_allow_mixed_transactions|on||configuration file
+max_connections|20||command line
+shared_buffers|8192|8kB|command line
+7d2b24af7e6d544ce8005edbf48f792ea79a79da9756ed45f733d20a671b4edb  /docker-entrypoint-initdb.d/0001-install-extensions.sql
+e91ed27a411927d7e3348022f7e2f82b7efdba537ddb2b9ad7010e3978bdc611  /docker-entrypoint-initdb.d/0002-localhost-trust.sh
+f3c0aa89cf2909d12c205b11f0e981c2d42181e93a1f26b64830b21bb8781bf5  /usr/lib/postgresql/18/lib/pg_duckdb.so
+c86b5cb08bb1afab058a0c11382b36eeb6031395729ff27c13829b0b941699e0  /usr/lib/postgresql/18/lib/pg_ducklake.so
+169ec042f44c1efac3cd87df6c2a5bc5fdb64dabeedabc0012109536f69f57b5  /usr/lib/postgresql/18/lib/pg_duckpipe.so
+d44b5d4d35eae91bfba2b629f9eaac81cea2c91ef012aa77b0a878b00e47cb7e  /usr/lib/postgresql/18/lib/libduckdb.so
+56613a50619af337941110513ad3ac4cff58862fba51d5f326a50d8f8fec996a  /usr/lib/postgresql/18/lib/ducklake.duckdb_extension
+1|host|{source_lab}|{probe_replicator}|172.18.0.0|scram-sha-256|
+2|host|{source_lab}|{probe_replicator}|fdfa:653f:4c09::|scram-sha-256|
+3|host|{all}|{probe_replicator}|all|reject|
+4|host|{replication}|{probe_replicator}|all|reject|
+117|local|{all}|{all}||scram-sha-256|
+119|host|{all}|{all}|127.0.0.1|scram-sha-256|
+121|host|{all}|{all}|::1|scram-sha-256|
+124|local|{replication}|{all}||scram-sha-256|
+125|host|{replication}|{all}|127.0.0.1|scram-sha-256|
+126|host|{replication}|{all}|::1|scram-sha-256|
+128|host|{all}|{all}|all|scram-sha-256|
+117|local|{all}|{all}||trust|
+119|host|{all}|{all}|127.0.0.1|trust|
+121|host|{all}|{all}|::1|trust|
+124|local|{replication}|{all}||trust|
+125|host|{replication}|{all}|127.0.0.1|trust|
+126|host|{replication}|{all}|::1|trust|
+128|host|{all}|{all}|all|scram-sha-256|
+129|host|{all}|{all}|127.0.0.1|trust|
+130|host|{all}|{all}|::1|trust|
+probe_replicator|source_lab|fdfa:653f:4c09::3|fdfa:653f:4c09::2
+psql: error: connection to server at "source-db" (fdfa:653f:4c09::2), port 5432 failed: FATAL:  password authentication failed for user "probe_replicator"
+psql: error: connection to server at "source-db" (fdfa:653f:4c09::2), port 5432 failed: FATAL:  pg_hba.conf rejects connection for host "fdfa:653f:4c09::3", user "probe_replicator", database "postgres", no encryption
+ERROR:  permission denied for schema fixture
+postgres|postgres|fdfa:653f:4c09::4|fdfa:653f:4c09::3
+psql: error: connection to server at "probe-consumer" (fdfa:653f:4c09::3), port 5432 failed: FATAL:  password authentication failed for user "postgres"
+postgres|postgres|127.0.0.1|127.0.0.1
+
+=== Stock source and scope ===
+Source server, stock extensions, effective settings and identity
+PostgreSQL 16.16 (Debian 16.16-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+
+plpgsql|1.0
+hba_file|/var/lib/postgresql/data/pg_hba.conf|
+max_replication_slots|2|
+max_slot_wal_keep_size|128|MB
+max_wal_senders|2|
+password_encryption|scram-sha-256|
+wal_level|logical|
+source_lab|7712390956980772901
+Assert source version and empty replication inventory
+Enroll Phase 1 fixture and provision probe-only scope
+
+scope|t|f|f|f|f|t|f|f|f
+
+=== Before registration: publisher ===
+wal|0/19A8480|0/19A8480
+identity|d
+
+=== After create_group: publisher ===
+wal|0/19A88A0|0/19A88A0
+slot|slot21_20261126t081522z|pgoutput|source_lab|f|f||0/19A8480|0/19A84B8|reserved
+publication|pub21_20261126t081522z|probe_replicator|t|t|t
+identity|d
+
+=== Before registration: catalog ===
+catalog_schema|ducklake|ducklake_metadata
+catalog|data_path|/var/lib/postgresql/18/docker/pg_ducklake/||
+catalog|version|0.4||
+snapshot|0|2026-11-26 08:15:58.934029+00|0
+
+=== initial ===
+Source rows
+1|seed
+Target polling
+expected
+1|seed
+last failing observation
+attempt=1 UTC=2026-11-26T08:16:07.347Z
+first passing observation attempt=2 elapsed_seconds=1 UTC=2026-11-26T08:16:08.032Z
+1|seed
+Source state
+wal|0/19A9310|0/19A9310
+slot|slot21_20261126t081522z|pgoutput|source_lab|f|t|243|0/19A8480|0/19A84B8|reserved
+publication|pub21_20261126t081522z|probe_replicator|t|t|t
+member|pub21_20261126t081522z|probe|items
+sender|243|probe_replicator|pgwire-replication|fdfa:653f:4c09::3|streaming|0/19A9310|||
+identity|f
+Consumer state
+group|default|duckpipe_pub_postgres|duckpipe_slot_postgres|t|bgworker|0||f
+group|g21_20261126t081522z|pub21_20261126t081522z|slot21_20261126t081522z|t|bgworker|1|2026-11-26 08:16:08.145795+00|t
+checkpoint|default|
+checkpoint|g21_20261126t081522z|0/19A92D8
+mapping_lsn|1|0/19A92D8|
+table|g21_20261126t081522z|probe.items|bronze.items|CATCHUP|1|0|0|f||1|362
+worker|default|0|f|0|0|0
+worker|g21_20261126t081522z|0|f|0|0|0
+backend|233|pg_duckpipe:g21_20261126t081522z|pg_duckpipe:g21_20261126t081522z|
+access_method|ducklake
+DuckLake state
+catalog_schema|ducklake|ducklake_metadata
+catalog|data_path|/var/lib/postgresql/18/docker/pg_ducklake/||
+catalog|version|0.4||
+table|bronze|bronze/|t|2|items|items/|t|1|
+snapshot|0|2026-11-26 08:15:58.934029+00|0
+snapshot|1|2026-11-26 08:16:06.976628+00|1
+snapshot|2|2026-11-26 08:16:07.330805+00|1
+inline_table|2|ducklake_inlined_data_2_1|1
+inline_rows|2|1
+
+=== insert ===
+Source rows
+1|seed
+2|inserted
+Target polling
+expected
+1|seed
+2|inserted
+last failing observation
+attempt=9 UTC=2026-11-26T08:16:14.139Z
+1|seed
+first passing observation attempt=10 elapsed_seconds=6 UTC=2026-11-26T08:16:14.755Z
+1|seed
+2|inserted
+Source state
+wal|0/19A9408|0/19A9408
+slot|slot21_20261126t081522z|pgoutput|source_lab|f|t|243|0/19A92A0|0/19A9350|reserved
+publication|pub21_20261126t081522z|probe_replicator|t|t|t
+member|pub21_20261126t081522z|probe|items
+sender|243|probe_replicator|pgwire-replication|fdfa:653f:4c09::3|streaming|0/19A9408|0/19A9350|0/19A9350|0/19A9350
+identity|f
+Consumer state
+group|default|duckpipe_pub_postgres|duckpipe_slot_postgres|t|bgworker|0||f
+group|g21_20261126t081522z|pub21_20261126t081522z|slot21_20261126t081522z|t|bgworker|1|2026-11-26 08:16:14.323431+00|t
+checkpoint|default|
+checkpoint|g21_20261126t081522z|0/19A9350
+mapping_lsn|1|0/19A92D8|0/19A9350
+table|g21_20261126t081522z|probe.items|bronze.items|STREAMING|2|0|0|f|0/19A9350|1|362
+worker|default|0|f|0|0|0
+worker|g21_20261126t081522z|0|f|0|0|0
+backend|233|pg_duckpipe:g21_20261126t081522z|pg_duckpipe:g21_20261126t081522z|
+access_method|ducklake
+DuckLake state
+catalog_schema|ducklake|ducklake_metadata
+catalog|data_path|/var/lib/postgresql/18/docker/pg_ducklake/||
+catalog|version|0.4||
+table|bronze|bronze/|t|2|items|items/|t|1|
+snapshot|0|2026-11-26 08:15:58.934029+00|0
+snapshot|1|2026-11-26 08:16:06.976628+00|1
+snapshot|2|2026-11-26 08:16:07.330805+00|1
+snapshot|3|2026-11-26 08:16:14.182111+00|1
+inline_table|2|ducklake_inlined_data_2_1|1
+inline_rows|2|2
+
+=== update ===
+Source rows
+1|updated
+2|inserted
+Target polling
+expected
+1|updated
+2|inserted
+last failing observation
+attempt=6 UTC=2026-11-26T08:16:18.728Z
+1|seed
+2|inserted
+first passing observation attempt=7 elapsed_seconds=4 UTC=2026-11-26T08:16:19.354Z
+1|updated
+2|inserted
+Source state
+wal|0/19A9498|0/19A9498
+slot|slot21_20261126t081522z|pgoutput|source_lab|f|t|243|0/19A92A0|0/19A9350|reserved
+publication|pub21_20261126t081522z|probe_replicator|t|t|t
+member|pub21_20261126t081522z|probe|items
+sender|243|probe_replicator|pgwire-replication|fdfa:653f:4c09::3|streaming|0/19A9498|0/19A9350|0/19A9350|0/19A9350
+identity|f
+Consumer state
+group|default|duckpipe_pub_postgres|duckpipe_slot_postgres|t|bgworker|0||f
+group|g21_20261126t081522z|pub21_20261126t081522z|slot21_20261126t081522z|t|bgworker|1|2026-11-26 08:16:18.988773+00|t
+checkpoint|default|
+checkpoint|g21_20261126t081522z|0/19A9350
+mapping_lsn|1|0/19A92D8|0/19A9408
+table|g21_20261126t081522z|probe.items|bronze.items|STREAMING|4|2|0|f|0/19A9408|1|362
+worker|default|0|f|0|0|0
+worker|g21_20261126t081522z|0|f|0|0|0
+backend|233|pg_duckpipe:g21_20261126t081522z|pg_duckpipe:g21_20261126t081522z|
+access_method|ducklake
+DuckLake state
+catalog_schema|ducklake|ducklake_metadata
+catalog|data_path|/var/lib/postgresql/18/docker/pg_ducklake/||
+catalog|version|0.4||
+table|bronze|bronze/|t|2|items|items/|t|1|
+snapshot|0|2026-11-26 08:15:58.934029+00|0
+snapshot|1|2026-11-26 08:16:06.976628+00|1
+snapshot|2|2026-11-26 08:16:07.330805+00|1
+snapshot|3|2026-11-26 08:16:14.182111+00|1
+snapshot|4|2026-11-26 08:16:19.271028+00|1
+inline_table|2|ducklake_inlined_data_2_1|1
+inline_rows|2|3
+
+=== delete ===
+Source rows
+1|updated
+Target polling
+expected
+1|updated
+last failing observation
+attempt=7 UTC=2026-11-26T08:16:23.929Z
+1|updated
+2|inserted
+first passing observation attempt=8 elapsed_seconds=5 UTC=2026-11-26T08:16:24.546Z
+1|updated
+Source state
+wal|0/19A9550|0/19A9550
+slot|slot21_20261126t081522z|pgoutput|source_lab|f|t|243|0/19A92A0|0/19A9408|reserved
+publication|pub21_20261126t081522z|probe_replicator|t|t|t
+member|pub21_20261126t081522z|probe|items
+sender|243|probe_replicator|pgwire-replication|fdfa:653f:4c09::3|streaming|0/19A9550|0/19A9408|0/19A9408|0/19A9408
+identity|f
+Consumer state
+group|default|duckpipe_pub_postgres|duckpipe_slot_postgres|t|bgworker|0||f
+group|g21_20261126t081522z|pub21_20261126t081522z|slot21_20261126t081522z|t|bgworker|1|2026-11-26 08:16:24.661822+00|t
+checkpoint|default|
+checkpoint|g21_20261126t081522z|0/19A9498
+mapping_lsn|1|0/19A92D8|0/19A9498
+table|g21_20261126t081522z|probe.items|bronze.items|STREAMING|5|1|0|f|0/19A9498|1|362
+worker|default|0|f|0|0|0
+worker|g21_20261126t081522z|0|f|0|0|0
+backend|233|pg_duckpipe:g21_20261126t081522z|pg_duckpipe:g21_20261126t081522z|
+access_method|ducklake
+DuckLake state
+catalog_schema|ducklake|ducklake_metadata
+catalog|data_path|/var/lib/postgresql/18/docker/pg_ducklake/||
+catalog|version|0.4||
+table|bronze|bronze/|t|2|items|items/|t|1|
+snapshot|0|2026-11-26 08:15:58.934029+00|0
+snapshot|1|2026-11-26 08:16:06.976628+00|1
+snapshot|2|2026-11-26 08:16:07.330805+00|1
+snapshot|3|2026-11-26 08:16:14.182111+00|1
+snapshot|4|2026-11-26 08:16:19.271028+00|1
+snapshot|5|2026-11-26 08:16:24.373733+00|1
+inline_table|2|ducklake_inlined_data_2_1|1
+inline_rows|2|3
+
+=== Deleted key, duplicate keys and local data listing ===
+deleted_absent|t
+duplicate_keys|0
+find local data files:
+(empty)
+
+=== PostgreSQL source log excerpts ===
+2026-11-26 08:16:03.759 UTC [202] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:03.870 UTC [203] FATAL:  password authentication failed for user "probe_replicator"
+2026-11-26 08:16:03.949 UTC [204] FATAL:  pg_hba.conf rejects connection for host "fdfa:653f:4c09::3", user "probe_replicator", database "postgres", no encryption
+2026-11-26 08:16:04.034 UTC [205] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:06.556 UTC [223] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:06.557 UTC [223] LOG:  execute s0: SELECT pg_create_logical_replication_slot($1, 'pgoutput')
+2026-11-26 08:16:06.671 UTC [223] STATEMENT:  SELECT pg_create_logical_replication_slot($1, 'pgoutput')
+2026-11-26 08:16:06.691 UTC [223] LOG:  execute s1: CREATE PUBLICATION pub21_20261126t081522z
+2026-11-26 08:16:06.982 UTC [240] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:06.985 UTC [240] LOG:  execute s2: ALTER PUBLICATION pub21_20261126t081522z ADD TABLE probe.items
+2026-11-26 08:16:07.074 UTC [241] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:07.081 UTC [242] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:07.084 UTC [243] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:07.085 UTC [243] STATEMENT:  START_REPLICATION SLOT slot21_20261126t081522z LOGICAL 0/0 (proto_version '1', publication_names 'pub21_20261126t081522z', messages 'true')
+2026-11-26 08:16:07.087 UTC [243] STATEMENT:  START_REPLICATION SLOT slot21_20261126t081522z LOGICAL 0/0 (proto_version '1', publication_names 'pub21_20261126t081522z', messages 'true')
+2026-11-26 08:16:07.088 UTC [242] LOG:  execute s6: SELECT lsn::text FROM pg_create_logical_replication_slot($1, 'pgoutput', true)
+2026-11-26 08:16:07.088 UTC [242] DETAIL:  parameters: $1 = 'duckpipe_snap_1'
+2026-11-26 08:16:07.197 UTC [242] STATEMENT:  SELECT lsn::text FROM pg_create_logical_replication_slot($1, 'pgoutput', true)
+2026-11-26 08:16:07.209 UTC [242] LOG:  execute s7: COPY (SELECT * FROM "probe"."items") TO STDOUT WITH (FORMAT csv, HEADER true, NULL '__DUCKPIPE_NULL__')
+2026-11-26 08:16:07.624 UTC [252] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:09.174 UTC [328] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:09.234 UTC [329] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:10.763 UTC [330] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:12.284 UTC [331] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:13.819 UTC [332] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:15.351 UTC [373] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:15.422 UTC [376] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:16.956 UTC [395] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:18.484 UTC [396] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:20.018 UTC [440] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:20.054 UTC [447] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:21.592 UTC [450] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:23.124 UTC [451] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:24.659 UTC [460] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:25.374 UTC [488] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:25.375 UTC [488] LOG:  execute s0: ALTER PUBLICATION pub21_20261126t081522z DROP TABLE probe.items
+2026-11-26 08:16:26.184 UTC [243] STATEMENT:  START_REPLICATION SLOT slot21_20261126t081522z LOGICAL 0/0 (proto_version '1', publication_names 'pub21_20261126t081522z', messages 'true')
+2026-11-26 08:16:26.218 UTC [498] LOG:  connection authenticated: identity="probe_replicator" method=scram-sha-256 (/var/lib/postgresql/data/pg_hba.conf:2)
+2026-11-26 08:16:26.220 UTC [498] LOG:  execute s1: SELECT pg_drop_replication_slot($1)
+2026-11-26 08:16:26.243 UTC [498] LOG:  execute s2: DROP PUBLICATION IF EXISTS pub21_20261126t081522z
+
+=== PostgreSQL consumer log excerpts ===
+2026-11-26T08:16:07.438633Z  INFO DuckPipe: Snapshot complete for probe.items: 1 rows copied (consistent_point=0/19A92D8)
+2026-11-26T08:16:14.202671Z  INFO DuckPipe timing: action=duckdb_flush target=bronze.items rows=1 has_non_inserts=false skip_delete=false deleted=0 may_have_conflicts=false elapsed_ms=22.7
+2026-11-26T08:16:19.298745Z  INFO DuckPipe timing: action=duckdb_flush target=bronze.items rows=2 has_non_inserts=true skip_delete=false deleted=1 may_have_conflicts=true elapsed_ms=29.9
+2026-11-26T08:16:24.389684Z  INFO DuckPipe timing: action=duckdb_flush target=bronze.items rows=1 has_non_inserts=true skip_delete=false deleted=1 may_have_conflicts=true elapsed_ms=19.5
+2026-11-26 08:16:25.390 UTC [711] WARNING:  Group 'g21_20261126t081522z' has no remaining tables — its replication slot is still holding WAL. Run SELECT duckpipe.drop_group('g21_20261126t081522z') to release it.
+
+=== Resource readings: source-db ===
+memory.max 805306368
+memory.swap.max 0
+memory.peak 132509696
+cpu.max 100000 100000
+pids.max 128
+pids.current 9, 10, 8
+oom max=0
+oom_kill max=0
+oom_group_kill max=0
+nr_throttled max=0
+throttled_usec max=0
+47352	/var/lib/postgresql/data
+16392	/var/lib/postgresql/data/pg_wal
+/dev/vda1          8050120 4364504   3669232      55% /var/lib/postgresql/data
+/dev/vda1          8050120 4364556   3669180      55% /var/lib/postgresql/data
+/dev/vda1          8050120 4364596   3669140      55% /var/lib/postgresql/data
+47356	/var/lib/postgresql/data
+/dev/vda1          8050120 4364636   3669100      55% /var/lib/postgresql/data
+47280	/var/lib/postgresql/data
+/dev/vda1          8050120 4364228   3669508      55% /var/lib/postgresql/data
+47348	/var/lib/postgresql/data
+/dev/vda1          8050120 4364848   3668888      55% /var/lib/postgresql/data
+
+=== Resource readings: probe-consumer ===
+memory.max 536870912
+memory.swap.max 0
+memory.peak 143060992, 148594688, 152080384, 125456384
+cpu.max 75000 100000
+pids.max 128
+pids.current 14, 15, 16, 11
+oom max=0
+oom_kill max=0
+oom_group_kill max=0
+nr_throttled max=22
+throttled_usec max=663851
+0	/tmp
+41332	/var/lib/postgresql
+16396	/var/lib/postgresql/18/docker/pg_wal
+/dev/vda1          8050120 4364504   3669232      55% /var/lib/postgresql
+41344	/var/lib/postgresql
+/dev/vda1          8050120 4364560   3669176      55% /var/lib/postgresql
+/dev/vda1          8050120 4364596   3669140      55% /var/lib/postgresql
+/dev/vda1          8050120 4364640   3669096      55% /var/lib/postgresql
+41208	/var/lib/postgresql
+/dev/vda1          8050120 4364228   3669508      55% /var/lib/postgresql
+/dev/vda1          8050120 4364656   3669080      55% /var/lib/postgresql
+
+=== After connector API teardown, before fallback ===
+wal|0/19A9938|0/19A9938
+identity|f
+
+=== After consumer stop, source state before fallback cleanup ===
+wal|0/19A9938|0/19A9938
+identity|f
+
+=== Guarded probe scope cleanup and command results ===
+NOTICE:  publication "pub21_20261126t081522z" does not exist, skipping
+NOTICE:  drop cascades to table probe.items
+after|0|0|t|t
+EXP-011 ROW AND LIFECYCLE CHECKS PASSED
+consumer_exit=0 oom=false
+source_exit=0 oom=false
+ Container cdc21-20261126t081522z-source-db-1  Removing
+ Container cdc21-20261126t081522z-probe-consumer-1  Removing
+ Container cdc21-20261126t081522z-source-db-1  Removed
+ Container cdc21-20261126t081522z-probe-consumer-1  Removed
+ Volume cdc21-20261126t081522z_source-pg  Removing
+ Volume cdc21-20261126t081522z_probe-pg  Removing
+ Volume cdc21-20261126t081522z_probe-pg  Removed
+ Volume cdc21-20261126t081522z_source-pg  Removed
+project_cleanup_exit=0
+
+=== Phase 1 inventory ===
+Exact before/after equality of role, namespace, relation and enrollment inventory.
