@@ -30,8 +30,8 @@ Operational Phase 6 requires the source (phase 1), durable worker orchestration 
 
 - **Phase 0:** see the [closeout and approval gate](phase-0-closeout.md).
 - **Phase 1:** technical source gate met and the Phase 2 backlog published. See the [closeout](phase-1-closeout.md) and [source simulator backlog](../backlog/phase-1.md).
-- **Phase 2:** first verify remote PG16 snapshot and DML through the pinned DuckPipe build into local DuckLake. Follow with exact fixture parity, WAL/slot observations, restart with bounded retention, and multi-table visibility. See the [published backlog](../backlog/phase-2.md).
-- **Phase 3:** local S3-compatible bucket, catalog metadata, independent DuckDB, Parquet objects/snapshots, multi-writer unknowns.
+- **Phase 2:** held remote CDC, exact values and bounded recovery demonstrated. M2 remains unmet on sparse WAL retention and concurrent COPY convergence. Maintainer decision pending. [Closeout](phase-2-closeout.md) · [Proposed corrections](../backlog/phase-2-corrections.md)
+- **Phase 3:** draft for approval. Verify actual writer catalog and S3-backed history with an independent reader and held source checkpoints. [Proposed backlog](../backlog/phase-3.md) · [Storage strategy](phase-3-storage-strategy.md)
 - **Phase 4:** Windmill runtime + one worker, read Bronze, Silver SQL, Gold Reporting/ML, Pipelines dependency experiments, readiness checks.
 - **Phase 5:** separate SQL-serving container/PG extension, remote catalog access, S3 Gold read, read-only roles, concurrent query benchmark, restart.
 - **Phase 6:** request-store schema/state transitions, client intake, Windmill job claim, artifact write/read, commit receipts, retry/outage experiments.

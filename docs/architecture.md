@@ -82,13 +82,13 @@ flowchart TB
 
 ## DuckPipe and catalog
 
-The extension-based candidate documents remote ingestion. Phase 2 must verify this path against a separate stock PostgreSQL 16.16 publisher. The proposed probe colocates DuckPipe, pg_ducklake and metadata on the consumer PostgreSQL and uses persistent local table data. Phase 3 covers object storage and independent reads. A separate catalog PostgreSQL or RDS deployment needs its own compatibility evidence. Catalog hosting and extension hosting have different requirements. [Pinned candidate review](experiments/EXP-010-phase-2-candidate-review.md) · [ADR-002](decisions/ADR-002-phase-2-local-cdc-probe.md)
+The Phase 2 experiments verified held remote CDC from stock PostgreSQL 16.16 into the pinned PG18.4 consumer. That consumer colocates DuckPipe, pg_ducklake and DuckLake 0.4 catalog metadata. It uses inline rows and verified local Parquet on a named volume. M2 remains unmet because of sparse WAL retention and concurrent initial COPY failures. The proposed Phase 3 baseline keeps the catalog colocated and verifies object-backed data from the actual writer and an independent format-matched reader. A separate PostgreSQL catalog or RDS deployment needs its own evidence. [Phase 2 closeout](phase-2-closeout.md) · [Proposed storage strategy](phase-3-storage-strategy.md)
 
 A DuckLake catalog maps tables/snapshots to Parquet files. DuckDB computation happens in external processes (e.g. Windmill workers), not inside the S3 bucket.
 
 ## Pipeline contract
 
-DuckPipe continuously follows changes. Windmill runs scheduled and/or event-triggered SQL transformations, initially using explicit Flows, then comparing asset-based Windmill Pipelines. External DuckPipe writes may not trigger Windmill assets automatically. Transformations should use defensible readiness and stable snapshot cutoffs; "streaming" or empty queue is insufficient proof of cross-table consistency.
+DuckPipe continuously follows changes. Windmill runs scheduled and/or event-triggered SQL transformations, initially using explicit Flows, then comparing asset-based Windmill Pipelines. External DuckPipe writes may not trigger Windmill assets automatically. The demonstrated lab cutoff uses a held source checkpoint, independent exact parity and one retained Bronze version. EXP-019 found partial source effects within individual DuckLake versions. The pinned writer has no verified continuous-source transaction-completion boundary. Windmill needs a separately verified input contract before publishing transaction-consistent outputs under continuous writes. [Snapshot cutoff research](bronze-snapshot-cutoffs.md)
 
 Bronze is a replicated **current-state** copy unless change-history semantics are separately established. Silver is cleaned/integrated data; multiple Gold schemas serve reporting, analytics and ML.
 
