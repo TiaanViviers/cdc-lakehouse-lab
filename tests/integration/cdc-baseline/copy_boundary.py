@@ -8,7 +8,7 @@ import subprocess
 import time
 
 from baseline import DEADLINE, DOCKER, POLL, SOURCE_PSQL, TABLES, TARGET, Experiment, require
-from scripts.cdc.parity import fixture_rows, verify_checkpoint, write_evidence
+from scripts.cdc.parity import ReadTimeout, fixture_rows, verify_checkpoint, write_evidence
 from scripts.cdc.parity.psql import read_fixture
 from tests.fixture_oracle import compare_checkpoint, load_expectations
 
@@ -69,21 +69,24 @@ class CopyBoundary(Experiment):
 
     def target_s01(self, deadline):
         def read_target(budget):
-            return read_fixture(self.target_reader, TARGET, min(budget, 8))
-
-        def samples(budget):
-            self.status("copy-parity")
-            return read_target(budget)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ReadTimeout("COPY convergence deadline expired")
+            capture = read_fixture(self.target_reader, TARGET, min(budget, remaining, 8))
+            if time.monotonic() >= deadline:
+                raise ReadTimeout("COPY result exceeded the convergence deadline")
+            return capture
 
         remaining = deadline - time.monotonic()
         require(remaining > 0, "COPY evidence consumed the target deadline")
-        result = verify_checkpoint(self.trial, "S01", self.read_source, samples,
+        result = verify_checkpoint(self.trial, "S01", self.read_source, read_target,
                                    target_timeout=remaining, interval=POLL)
         write_evidence(self.evidence / "copy-window", result)
         self.event("copy-window", "exact_target" if result.passed else "parity_failed",
                    source=result.source.status, target=result.target.status,
                    attempts=result.target_attempts)
-        require(result.passed and time.monotonic() < deadline, "COPY S01 parity deadline missed")
+        self.status("copy-parity")
+        require(result.passed, "COPY S01 parity deadline missed")
 
     def capture_connector_trace(self):
         # Match only ticket-specific numeric traces and the two existing snapshot
@@ -92,7 +95,7 @@ class CopyBoundary(Experiment):
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True, timeout=8, check=True)
         pattern = re.compile(
-            r"(COPY212 [A-Za-z0-9_= /.-]+|(?:Starting chunked COPY snapshot|Snapshot complete)"
+            r"(COPY212 [A-Za-z0-9_= /.,:-]+|(?:Starting chunked COPY snapshot|Snapshot complete)"
             r" for fixture\.order_items:? (?:[0-9]+ rows copied )?\(consistent_point=[0-9A-F/]+\))"
         )
         lines = [match[0] for line in proc.stdout.splitlines() if (match := pattern.search(line))]
@@ -115,9 +118,9 @@ class CopyBoundary(Experiment):
             committed, deadline = self.overlap()
         try:
             self.dump_s01(*committed)
-            self.inventory()
             self.target_s01(deadline)
             require(len(self.positions("after-S01")) == 1, "temporary COPY slot remains after parity")
+            self.inventory()
             self.item_102_dml()
         finally:
             self.capture_connector_trace()

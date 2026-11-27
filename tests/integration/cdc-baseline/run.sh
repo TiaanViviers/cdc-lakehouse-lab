@@ -13,6 +13,7 @@ case $trial in
         export COPY_SCHEDULE=${3:?overlap, delayed, before-slot or after-copy}
         case $COPY_SCHEDULE in overlap|delayed|before-slot|after-copy) ;; *) exit 2 ;; esac
         ;;
+    copy-control) experiment=023 ticket=60 sequence=32 controller=cdc-baseline/baseline.py ;;
     gate) experiment=020 ticket=46 sequence=29 controller=cdc-gate/gate.py ;;
     *) exit 2 ;;
 esac
@@ -23,7 +24,7 @@ findmnt -no OPTIONS --target "$media" | tr , '\n' | grep -Fxq ro
 test -z "$(ip -4 route show default; ip -6 route show default)"
 test "$(ls /sys/class/net | sort | paste -sd ' ')" = 'docker0 lo'
 unset DOCKER_CONTEXT DOCKER_HOST COMPOSE_FILE COMPOSE_PROFILES COMPOSE_ENV_FILES SOURCE_INPUT_ID
-unset SOURCE_FIXTURE_ID_FILE
+unset SOURCE_FIXTURE_ID_FILE COPY_CANDIDATE_LIBRARY
 export LC_ALL=C TZ=UTC COMPOSE_DISABLE_ENV_FILE=1
 utc=$(date -u +%Y%m%dT%H%M%SZ)
 export CDC_RUN_KEY="r$(date -u +%Y%m%dt%H%M%Sz)$(openssl rand -hex 2)"
@@ -45,7 +46,17 @@ trap 'exit 124' TERM
 echo "owner=Codex ticket=$ticket trial=$trial run=$RUN_ID runner=$RUNNER_ID sha=$CDC_REVISION overlay=$CDC_OVERLAY project=$COMPOSE_PROJECT_NAME"
 echo 'Budgets: guest 2 vCPU / 2 GiB, run 480s, checkpoint 60s, polling 500ms after a read, rollback hold 10s'
 d() { timeout --foreground -k 2s 35s docker --host unix:///var/run/docker.sock "$@"; }
-stack() { d compose -f compose.source.yaml -f compose.cdc.yaml -f compose.runner.yaml --profile source --profile cdc --profile generator "$@"; }
+candidate=${4:-stock}
+compose_files=(-f compose.source.yaml -f compose.cdc.yaml -f compose.runner.yaml)
+case "$trial/$candidate" in
+    */stock) ;;
+    copy-boundary/diagnostic|copy-boundary/fixed|copy-control/fixed)
+        export COPY_CANDIDATE_LIBRARY="$media/pg_duckpipe.so"
+        compose_files+=(-f tests/integration/cdc-baseline/copy-candidate.compose.yaml)
+        ;;
+    *) exit 2 ;;
+esac
+stack() { d compose "${compose_files[@]}" --profile source --profile cdc --profile generator "$@"; }
 bridge="p${sequence}${CDC_RUN_KEY:10:6}${CDC_RUN_KEY:17:4}"
 label="com.docker.compose.project=$COMPOSE_PROJECT_NAME"
 rules=()
@@ -129,6 +140,13 @@ uname -sr
 python3 --version
 (cd "$media" && sha256sum -c SHA256SUMS)
 test "$(cat "$media/revision")" = "$CDC_REVISION"
+if [[ $candidate != stock ]]; then
+    test -f "$COPY_CANDIDATE_LIBRARY" && test ! -L "$COPY_CANDIDATE_LIBRARY"
+    grep -Ex '[0-9a-f]{64}  pg_duckpipe.so' "$media/SHA256SUMS"
+    test "$(cat "$media/candidate.kind")" = "$candidate"
+    grep -Ex '[0-9a-f]{64}  candidate.kind' "$media/SHA256SUMS"
+fi
+echo "COPY candidate=$candidate"
 python3 scripts/cdc/consumer/image.py verify "$media/consumer.tar"
 for archive in source consumer probe runner; do
     timeout --foreground -k 2s 90s docker --host unix:///var/run/docker.sock load -i "$media/$archive.tar"
@@ -170,6 +188,15 @@ export SOURCE_ID CONSUMER_ID
 test "$(d network inspect -f '{{len .Containers}}' "$SOURCE_INPUT_ID")" = 2
 identity source-db source-pg /var/lib/postgresql/data "$SOURCE_ID"
 identity cdc-catalog cdc-pg /var/lib/postgresql "$CONSUMER_ID"
+if [[ $candidate != stock ]]; then
+    library=/usr/lib/postgresql/18/lib/pg_duckpipe.so
+    test "$(d inspect -f "{{range .Mounts}}{{if eq .Destination \"$library\"}}{{.Type}} {{.Source}} {{.RW}}{{end}}{{end}}" "$CONSUMER_ID")" \
+        = "bind $COPY_CANDIDATE_LIBRARY false"
+    expected_library=$(sha256sum "$COPY_CANDIDATE_LIBRARY" | cut -d ' ' -f 1)
+    observed_library=$(d exec --user postgres "$CONSUMER_ID" sha256sum "$library" | cut -d ' ' -f 1)
+    test "$observed_library" = "$expected_library"
+    echo "COPY library sha256=$observed_library"
+fi
 for id in "$SOURCE_ID" "$CONSUMER_ID"; do
     d inspect -f '{{.Id}} {{.Image}} {{json .NetworkSettings.Networks}}' "$id"
     d exec --user postgres "$id" sh -ec '

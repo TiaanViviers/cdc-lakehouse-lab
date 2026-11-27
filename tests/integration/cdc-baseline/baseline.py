@@ -565,7 +565,7 @@ class Experiment:
         for table in TABLES[:-1]:
             self.register(table)
             self.initial(table, "S00")
-        if self.trial == "copy-window":
+        if self.trial in ("copy-window", "copy-boundary"):
             self.copy_window()
         else:
             self.register(TABLES[-1])
