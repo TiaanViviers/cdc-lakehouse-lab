@@ -108,23 +108,23 @@ class CopyBoundary(Experiment):
         self.save("connector-copy.json", lines[-200:])
 
     def copy_window(self):
-        self.event("copy-window", "schedule", name=self.schedule)
-        self.positions("before-order-items")
-        if self.schedule == "before-slot":
-            committed = self.commit_s01()
-            self.register(TABLES[-1])
-            deadline = time.monotonic() + DEADLINE
-        elif self.schedule == "after-copy":
-            self.register(TABLES[-1])
-            self.initial(TABLES[-1], "S00")
-            self.positions("after-copy-before-commit")
-            committed = self.commit_s01()
-            deadline = time.monotonic() + DEADLINE
-        elif self.schedule == "slot-initializing":
-            committed, deadline = self.during_slot_initialization()
-        else:
-            committed, deadline = self.overlap()
         try:
+            self.event("copy-window", "schedule", name=self.schedule)
+            self.positions("before-order-items")
+            if self.schedule == "before-slot":
+                committed = self.commit_s01()
+                self.register(TABLES[-1])
+                deadline = time.monotonic() + DEADLINE
+            elif self.schedule == "after-copy":
+                self.register(TABLES[-1])
+                self.initial(TABLES[-1], "S00")
+                self.positions("after-copy-before-commit")
+                committed = self.commit_s01()
+                deadline = time.monotonic() + DEADLINE
+            elif self.schedule == "slot-initializing":
+                committed, deadline = self.during_slot_initialization()
+            else:
+                committed, deadline = self.overlap()
             self.dump_s01(*committed)
             self.target_s01(deadline)
             require(len(self.positions("after-S01")) == 1, "temporary COPY slot remains after parity")
@@ -158,9 +158,7 @@ class CopyBoundary(Experiment):
         # registration has committed its source DDL and the slot wait is witnessed.
         operation, = insert_operations("S01")
         require(operation["table"] == "order_items", "unexpected S01 input")
-        payload = json.dumps(operation["row"])
-        require("'" not in payload, "unexpected quote in synthetic fixture")
-        args = (*self.source, "-At", "-f", "-")
+        args = (*self.source, "-At", "-v", f"s01_row={json.dumps(operation['row'])}", "-f", "-")
         with self.held_sender() as sender, subprocess.Popen(
             args, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
         ) as writer:
@@ -177,9 +175,9 @@ class CopyBoundary(Experiment):
                 require(pid.isdecimal() and xid.isdecimal(), "unverified source writer identity")
                 self.register(TABLES[-1])
                 self.wait_slot_initialization(pid)
-                writer.stdin.write(f"""
+                writer.stdin.write("""
                     INSERT INTO fixture.order_items
-                    SELECT row.* FROM json_populate_record(NULL::fixture.order_items, '{payload}') AS row
+                    SELECT row.* FROM json_populate_record(NULL::fixture.order_items, :'s01_row') AS row
                     RETURNING item_id;
                     COMMIT;
                 """)
