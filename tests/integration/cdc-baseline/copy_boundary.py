@@ -5,12 +5,14 @@ import json
 import os
 from pathlib import Path
 import re
+import select
 import subprocess
 import time
 
 from baseline import DEADLINE, DOCKER, POLL, SOURCE_PSQL, TABLES, TARGET, Experiment, require
 from scripts.cdc.parity import ReadTimeout, fixture_rows, verify_checkpoint, write_evidence
 from scripts.cdc.parity.psql import read_fixture
+from scripts.source.workload import insert_operations
 from tests.fixture_oracle import compare_checkpoint, load_expectations
 
 
@@ -38,6 +40,9 @@ class CopyBoundary(Experiment):
         events = (self.evidence / "during-copy.runner.jsonl").read_text().splitlines()
         xid = next(row["xid"] for row in map(json.loads, events)
                    if row["event"] == "commit_acknowledged")
+        return self.verify_source_s01(xid, start, end)
+
+    def verify_source_s01(self, xid, start, end):
         require(xid.isdecimal() and int(xid) <= 0xFFFFFFFF, "expected a fresh cluster XID")
         require(all(re.fullmatch(r"[0-9A-F]+/[0-9A-F]+", lsn) for lsn in (start, end)),
                 "invalid WAL bracket")
@@ -115,6 +120,8 @@ class CopyBoundary(Experiment):
             self.positions("after-copy-before-commit")
             committed = self.commit_s01()
             deadline = time.monotonic() + DEADLINE
+        elif self.schedule == "slot-initializing":
+            committed, deadline = self.during_slot_initialization()
         else:
             committed, deadline = self.overlap()
         try:
@@ -127,6 +134,64 @@ class CopyBoundary(Experiment):
             self.item_102_dml()
         finally:
             self.capture_connector_trace()
+
+    def wait_slot_initialization(self, writer_pid):
+        timeout = time.monotonic() + 7
+        while time.monotonic() < timeout:
+            row = self.sql("slot initialization boundary", """
+                SELECT s.slot_name, a.pid, a.backend_xmin, s.restart_lsn, s.confirmed_flush_lsn
+                FROM pg_replication_slots s
+                JOIN pg_stat_activity a ON a.pid = s.active_pid
+                WHERE s.temporary AND s.slot_name ~ '^duckpipe_snap_[0-9]+$'
+                  AND s.plugin = 'pgoutput' AND s.database = 'source_lab'
+                  AND a.query LIKE 'SELECT lsn::text%pg_create_logical_replication_slot%'
+                  AND :'writer'::int = ANY(pg_blocking_pids(a.pid));
+            """, variables=("-v", f"writer={writer_pid}"))
+            if row and "\n" not in row:
+                self.event("copy-window", "slot_initialization_blocked_by_writer", slot=row)
+                return
+            time.sleep(0.2)
+        raise RuntimeError("inconclusive: slot initialization did not wait for the assigned XID")
+
+    def during_slot_initialization(self):
+        # Assign the fixture writer an XID without touching order_items until
+        # registration has committed its source DDL and the slot wait is witnessed.
+        operation, = insert_operations("S01")
+        require(operation["table"] == "order_items", "unexpected S01 input")
+        payload = json.dumps(operation["row"])
+        require("'" not in payload, "unexpected quote in synthetic fixture")
+        args = (*self.source, "-At", "-f", "-")
+        with self.held_sender() as sender, subprocess.Popen(
+            args, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        ) as writer:
+            try:
+                writer.stdin.write("""
+                    SET idle_in_transaction_session_timeout='24s';
+                    BEGIN;
+                    SET LOCAL ROLE source_fixture_writer;
+                    SELECT pg_backend_pid(), pg_current_xact_id(), pg_current_wal_insert_lsn();
+                """)
+                writer.stdin.flush()
+                require(select.select([writer.stdout], [], [], 5)[0], "source writer XID unobserved")
+                pid, xid, start = writer.stdout.readline().strip().split("|")
+                require(pid.isdecimal() and xid.isdecimal(), "unverified source writer identity")
+                self.register(TABLES[-1])
+                self.wait_slot_initialization(pid)
+                writer.stdin.write(f"""
+                    INSERT INTO fixture.order_items
+                    SELECT row.* FROM json_populate_record(NULL::fixture.order_items, '{payload}') AS row
+                    RETURNING item_id;
+                    COMMIT;
+                """)
+            finally:
+                writer.stdin.close()
+                require(writer.wait(timeout=8) == 0, "slot initialization writer failed")
+            require(writer.stdout.read().strip() == "102", "slot initialization writer must insert key 102")
+            deadline = time.monotonic() + DEADLINE
+            end = self.sql("post-commit WAL", "SELECT pg_current_wal_insert_lsn();")
+            committed = self.verify_source_s01(xid, start, end)
+            self.wait_handoff(sender)
+        return committed, deadline
 
     @contextmanager
     def held_sender(self):

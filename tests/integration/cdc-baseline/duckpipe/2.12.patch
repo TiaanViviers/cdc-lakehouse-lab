@@ -20,7 +20,7 @@ index 192b973..fbbe8b7 100644
 +use crate::types::{
 +    format_lsn, Change, ChangeType, RelCacheEntry, SyncGroup, SyncMode, TableMapping, Value,
 +};
- 
+
  /// Configuration for the DuckPipe service.
  #[derive(Debug, Clone)]
 @@ -76,6 +78,7 @@ struct RelCacheWithMapping {
@@ -193,7 +193,7 @@ index 6c8eac2..c8ec44c 100644
          )
          .await
 @@ -122,6 +122,15 @@ pub async fn process_snapshot_task(
- 
+
      let consistent_point_str: String = row.get(0);
      let consistent_point = parse_lsn(&consistent_point_str);
 +    let read_view: String = row.get(1);
@@ -205,7 +205,7 @@ index 6c8eac2..c8ec44c 100644
 +        consistent_point_str,
 +        read_view
 +    );
- 
+
      tracing::info!(
          "DuckPipe: Starting chunked COPY snapshot for {}.{} (consistent_point={})",
 
@@ -225,7 +225,7 @@ index fbbe8b7..00d7ab1 100644
 @@ -160,28 +160,27 @@ async fn ensure_coordinator_queue(
      Ok(())
  }
- 
+
 -/// Returns true if this WAL change should be skipped: disabled, errored,
 -/// not yet caught up (CATCHUP with lsn <= snapshot_lsn), or already applied
 -/// in append mode (lsn <= applied_lsn).
@@ -265,7 +265,7 @@ index fbbe8b7..00d7ab1 100644
 -    false
 +        && row_lsn <= mapping.applied_lsn)
  }
- 
+
  /// Fill unchanged (TOAST) columns in `new_values` from `old_values`.
 @@ -468,7 +467,11 @@ async fn process_one_wal_message(
                      cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
@@ -307,7 +307,7 @@ index fbbe8b7..00d7ab1 100644
                          let (xid, final_lsn) = transaction.unwrap_or_default();
                          tracing::debug!(
 @@ -1463,3 +1474,55 @@ pub async fn run_group_sync_cycle(
- 
+
      Ok((any_work, group.pending_lsn))
  }
 +

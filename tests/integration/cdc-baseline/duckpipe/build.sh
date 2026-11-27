@@ -40,13 +40,20 @@ cd "$upstream"
 git rev-parse HEAD
 sha256sum Cargo.lock
 cargo +1.95.0 fmt --all --check
+# Cargo can otherwise reuse a core library when switching between local
+# upstream worktrees of the same package and version in one target directory.
+cargo +1.95.0 clean --release -p duckpipe-core
 cargo +1.95.0 build --locked --jobs 5 --release -p pg_duckpipe --lib
 library="$CARGO_TARGET_DIR/release/libpg_duckpipe.so"
 max_glibc=$(readelf --version-info "$library" | awk '/Name: GLIBC_[0-9]/ { print $3 }' | sort -Vu | tail -1)
 test -n "$max_glibc"
 test "$(printf '%s\n' "$max_glibc" GLIBC_2.36 | sort -V | tail -1)" = GLIBC_2.36
-if git log -1 --format=%s | grep -Fxq 'Use pgoutput commit position for COPY catch-up admission'; then
+strings "$library" > "$base/library.strings.tmp"
+grep -Fq 'COPY212 handoff' "$base/library.strings.tmp"
+if grep -Fq 'mod copy_boundary_tests' duckpipe-core/src/service.rs; then
+    grep -Fq 'CATCHUP DML without a pgoutput BEGIN' "$base/library.strings.tmp"
     cargo +1.95.0 test --locked --jobs 5 --release -p duckpipe-core --lib copy_boundary_tests
 fi
+rm "$base/library.strings.tmp"
 install -m 0644 "$library" "$base/pg_duckpipe.so"
 sha256sum "$base/pg_duckpipe.so"
