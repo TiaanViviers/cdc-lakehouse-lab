@@ -201,5 +201,29 @@ tickets:
     status: published
     github_issue: 47
     labels: ["docs"]
-    dependencies: ["1.9", "2.9"]
+    dependencies: ["1.9", "2.9", "2.11", "2.12", "2.13"]
     research_questions: ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R13", "R16"]
+  - id: "2.11"
+    phase: 2
+    title: "Bound sparse-table feedback without skipping committed changes"
+    status: published
+    github_issue: 59
+    labels: ["research", "priority:high"]
+    dependencies: ["2.7", "2.9"]
+    research_questions: ["R03", "R04", "R05"]
+  - id: "2.12"
+    phase: 2
+    title: "Correct convergence across the initial COPY boundary"
+    status: published
+    github_issue: 60
+    labels: ["bug", "priority:high"]
+    dependencies: ["2.6", "2.9"]
+    research_questions: ["R02", "R03", "R04", "R05"]
+  - id: "2.13"
+    phase: 2
+    title: "Reverify M2 on the integrated correction"
+    status: published
+    github_issue: 61
+    labels: ["research", "priority:high"]
+    dependencies: ["2.11", "2.12"]
+    research_questions: ["R01", "R02", "R03", "R04", "R05", "R06", "R08", "R09", "R13", "R16"]

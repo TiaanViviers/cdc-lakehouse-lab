@@ -43,6 +43,10 @@ Reviewed the implementations at `2efb64050ffffe4eb006fbe0c79f880dd89f60ca`, the 
 
 After approval, recheck repository-wide open/closed issues and registry IDs, record the exact approved scope and decision, and publish only approved current-phase corrective items first where applicable. For a later authorized handover, verify all other Phase 2 items are Done, update the registry, create the approved Phase 3 milestone, publish and link its approved issues, and verify milestone assignments and Ready/Backlog on Project 3. Record all links and the gate disposition before completing 2.10 last. [Issue #47](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/47) · [Project workflow](project-management.md#mandatory-final-transition-issue) · [Proposed ADR](decisions/ADR-003-phase-2-gate-and-phase-3-boundary.md)
 
+## Corrective work authorization
+
+Following independent review and merge of [planning PR #58](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/58), the maintainer authorized Phase 2 corrective tickets 2.11–2.13. M2 remains unmet and 2.10 remains open pending the corrective work and full gate review. Phase 3 publication and early compatibility probes still require approval. [Corrective publication record](../backlog/phase-2-corrections.md)
+
 ## Reproduction and review
 
 The [closeout experiment record](experiments/EXP-021-phase-2-closeout-review.md) contains the offline evidence checks and artifact identities. To reproduce runtime observations, use the recorded media and disconnected guest in the [gate runbook](cdc-gate.md), the [COPY hold](../tests/integration/cdc-baseline/README.md), the [crash/loss schedules](../tests/integration/cdc-recovery/README.md) and the [visibility schedules](../tests/integration/cdc-visibility/README.md). The current paired command reproduced `Paired CDC subgate: fail` and Make exit 2 in guest 38. The closeout rechecked committed evidence and static upstream sources without rerunning a guest or operating a live catalog. [Recorded guest rerun](experiments/evidence/EXP-020-review-rerun.json)

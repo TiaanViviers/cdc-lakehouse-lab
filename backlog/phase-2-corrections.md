@@ -1,6 +1,15 @@
 # Proposed Phase 2 corrective work
 
-**Maintainer review required.** These candidate IDs are available for the existing Phase 2 milestone. Publication requires approval, collision recheck and registry reservation. [Closeout](../docs/phase-2-closeout.md) · [Existing full M2 review](../docs/cdc-gate.md#review-the-full-m2-decision)
+**Approved and published.** The maintainer authorized 2.11–2.13 after independent review of [PR #58](https://github.com/TiaanViviers/cdc-lakehouse-lab/pull/58). M2 remains unmet and [2.10 / #47](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/47) remains open.
+
+| Ticket | [Phase 2 milestone](https://github.com/TiaanViviers/cdc-lakehouse-lab/milestone/3) | Initial [board](https://github.com/users/TiaanViviers/projects/3) status |
+| --- | --- | --- |
+| 2.11 | [#59](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/59) | Ready |
+| 2.12 | [#60](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/60) | Ready |
+| 2.13 | [#61](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/61) | Backlog |
+
+The issues and ticket registry record the dependencies. Native GitHub blocked-by links include the two corrective prerequisites of 2.13 and all three corrective prerequisites of 2.10. Phase 3 publication remains pending.
+ [Closeout](../docs/phase-2-closeout.md) · [Existing full M2 review](../docs/cdc-gate.md#review-the-full-m2-decision)
 
 Dependency types used here and in Phase 3 are **I** for implementation/interfaces, **R** for runtime evidence needed for acceptance and **G** for a maintainer or research decision. An R dependency can allow offline work before its run. All tickets require dedicated worktrees/branches from updated main, the existing exclusive VM lease, distinct disposable identities, independent evidence and fail-closed isolation and teardown. Assign one owner to reconcile any accepted connector patches that touch shared dispatch/checkpoint paths.
 
