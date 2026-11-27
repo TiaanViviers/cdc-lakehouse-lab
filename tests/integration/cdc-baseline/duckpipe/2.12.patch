@@ -1,0 +1,364 @@
+From 922589f9909123a4435d7ea89c23c1f7c99cde3d Mon Sep 17 00:00:00 2001
+From: Christiaan Casper Viviers <25070401@sun.ac.za>
+Date: Fri, 27 Nov 2026 09:14:57 +0200
+Subject: [PATCH 1/2] Trace COPY snapshot and pgoutput admission boundaries
+
+---
+ duckpipe-core/src/service.rs  | 70 +++++++++++++++++++++++++++++++----
+ duckpipe-core/src/snapshot.rs | 11 +++++-
+ 2 files changed, 73 insertions(+), 8 deletions(-)
+
+diff --git a/duckpipe-core/src/service.rs b/duckpipe-core/src/service.rs
+index 192b973..fbbe8b7 100644
+--- a/duckpipe-core/src/service.rs
++++ b/duckpipe-core/src/service.rs
+@@ -22,7 +22,9 @@ use crate::metadata::{compute_backoff_secs, MetadataClient, ERRORED_THRESHOLD};
+ use crate::slot_consumer::SlotConsumer;
+ use crate::snapshot_manager::SnapshotManager;
+ use crate::state::SyncState;
+-use crate::types::{Change, ChangeType, RelCacheEntry, SyncGroup, SyncMode, TableMapping, Value};
++use crate::types::{
++    format_lsn, Change, ChangeType, RelCacheEntry, SyncGroup, SyncMode, TableMapping, Value,
++};
+ 
+ /// Configuration for the DuckPipe service.
+ #[derive(Debug, Clone)]
+@@ -76,6 +78,7 @@ struct RelCacheWithMapping {
+ pub struct SlotState {
+     pub consumer: SlotConsumer,
+     rel_cache: HashMap<u32, RelCacheWithMapping>,
++    transaction: Option<(u32, u64)>,
+     /// When the cache last did a periodic refresh of `enabled`/`state` from PG.
+     last_enabled_check: Instant,
+ }
+@@ -340,6 +343,7 @@ async fn process_one_wal_message(
+     coordinator: &mut FlushCoordinator,
+     rel_cache: &mut HashMap<u32, RelCacheWithMapping>,
+     source_client: Option<&Client>,
++    transaction: &mut Option<(u32, u64)>,
+ ) -> Result<bool, String> {
+     if data.is_empty() {
+         return Ok(false);
+@@ -464,7 +468,17 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    if should_skip_change(mapping, lsn) {
++                    let skip = should_skip_change(mapping, lsn);
++                    if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
++                        let (xid, final_lsn) = transaction.unwrap_or_default();
++                        tracing::debug!(
++                            "COPY212 route op={} rel={} mapping={} state={:?} xid={} row={} final={} snapshot={} applied={} skip={} existing_queue={}",
++                            msgtype, rel_id, mapping.id, mapping.state, xid, format_lsn(lsn),
++                            format_lsn(final_lsn), format_lsn(mapping.snapshot_lsn),
++                            format_lsn(mapping.applied_lsn), skip, coordinator.get_meta(mapping.id).is_some()
++                        );
++                    }
++                    if skip {
+                         return Ok(false);
+                     }
+                     let target_key = format!("{}.{}", mapping.target_schema, mapping.target_table);
+@@ -516,7 +530,17 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    if should_skip_change(mapping, lsn) {
++                    let skip = should_skip_change(mapping, lsn);
++                    if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
++                        let (xid, final_lsn) = transaction.unwrap_or_default();
++                        tracing::debug!(
++                            "COPY212 route op={} rel={} mapping={} state={:?} xid={} row={} final={} snapshot={} applied={} skip={} existing_queue={}",
++                            msgtype, rel_id, mapping.id, mapping.state, xid, format_lsn(lsn),
++                            format_lsn(final_lsn), format_lsn(mapping.snapshot_lsn),
++                            format_lsn(mapping.applied_lsn), skip, coordinator.get_meta(mapping.id).is_some()
++                        );
++                    }
++                    if skip {
+                         return Ok(false);
+                     }
+                     let target_key = format!("{}.{}", mapping.target_schema, mapping.target_table);
+@@ -641,7 +665,17 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    if should_skip_change(mapping, lsn) {
++                    let skip = should_skip_change(mapping, lsn);
++                    if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
++                        let (xid, final_lsn) = transaction.unwrap_or_default();
++                        tracing::debug!(
++                            "COPY212 route op={} rel={} mapping={} state={:?} xid={} row={} final={} snapshot={} applied={} skip={} existing_queue={}",
++                            msgtype, rel_id, mapping.id, mapping.state, xid, format_lsn(lsn),
++                            format_lsn(final_lsn), format_lsn(mapping.snapshot_lsn),
++                            format_lsn(mapping.applied_lsn), skip, coordinator.get_meta(mapping.id).is_some()
++                        );
++                    }
++                    if skip {
+                         return Ok(false);
+                     }
+                     let target_key = format!("{}.{}", mapping.target_schema, mapping.target_table);
+@@ -673,15 +707,25 @@ async fn process_one_wal_message(
+             }
+         }
+         'B' => {
+-            let _final_lsn = read_i64(data, &mut cursor) as u64;
++            let final_lsn = read_i64(data, &mut cursor) as u64;
+             let _commit_time = read_i64(data, &mut cursor);
+-            let _xid = read_i32(data, &mut cursor);
++            let xid = read_i32(data, &mut cursor) as u32;
++            *transaction = Some((xid, final_lsn));
+         }
+         'C' => {
+             let _flags = read_byte(data, &mut cursor);
+-            let _commit_lsn = read_i64(data, &mut cursor) as u64;
++            let commit_lsn = read_i64(data, &mut cursor) as u64;
+             let end_lsn = read_i64(data, &mut cursor) as u64;
+             let _commit_time = read_i64(data, &mut cursor);
++            if let Some((xid, final_lsn)) = transaction.take() {
++                tracing::debug!(
++                    "COPY212 commit xid={} final={} commit={} end={}",
++                    xid,
++                    format_lsn(final_lsn),
++                    format_lsn(commit_lsn),
++                    format_lsn(end_lsn)
++                );
++            }
+             group.pending_lsn = end_lsn;
+             return Ok(true);
+         }
+@@ -867,6 +911,7 @@ async fn process_sync_group_streaming(
+     coordinator: &mut FlushCoordinator,
+     rel_cache: &mut HashMap<u32, RelCacheWithMapping>,
+     source_client: Option<&Client>,
++    transaction: &mut Option<(u32, u64)>,
+ ) -> Result<ProcessResult, String> {
+     let timing = config.debug_log;
+     let group_start = if timing { Some(Instant::now()) } else { None };
+@@ -938,6 +983,7 @@ async fn process_sync_group_streaming(
+                     coordinator,
+                     rel_cache,
+                     source_client,
++                    transaction,
+                 )
+                 .await?;
+                 total_processed += 1;
+@@ -1148,6 +1194,13 @@ pub async fn run_group_sync_cycle(
+                         .update_table_metrics(snap.task_id, *rows_copied as i64)
+                         .await;
+                 }
++                tracing::debug!(
++                    "COPY212 handoff mapping={} snapshot={} copied={} existing_queue={}",
++                    snap.task_id,
++                    format_lsn(*snapshot_lsn),
++                    rows_copied,
++                    coordinator.get_meta(snap.task_id).is_some()
++                );
+                 coordinator.unpause_table(snap.task_id);
+             }
+             Err(e) => {
+@@ -1302,6 +1355,7 @@ pub async fn run_group_sync_cycle(
+         None => true,
+     };
+     if needs_connect {
++        tracing::debug!("COPY212 connect requested={}", format_lsn(slot_start_lsn));
+         *consumer = None;
+         let new_consumer = connect_slot_consumer(
+             effective_slot_params,
+@@ -1314,6 +1368,7 @@ pub async fn run_group_sync_cycle(
+         *consumer = Some(SlotState {
+             consumer: new_consumer,
+             rel_cache: HashMap::new(),
++            transaction: None,
+             last_enabled_check: Instant::now(),
+         });
+     }
+@@ -1376,6 +1431,7 @@ pub async fn run_group_sync_cycle(
+         coordinator,
+         &mut slot_state.rel_cache,
+         source_client_ref,
++        &mut slot_state.transaction,
+     )
+     .await
+     {
+diff --git a/duckpipe-core/src/snapshot.rs b/duckpipe-core/src/snapshot.rs
+index 6c8eac2..c8ec44c 100644
+--- a/duckpipe-core/src/snapshot.rs
++++ b/duckpipe-core/src/snapshot.rs
+@@ -109,7 +109,7 @@ pub async fn process_snapshot_task(
+     // snapshot is established here.
+     let row = ctrl_client
+         .query_one(
+-            "SELECT lsn::text FROM pg_create_logical_replication_slot($1, 'pgoutput', true)",
++            "SELECT lsn::text, pg_current_snapshot()::text, pg_backend_pid()                  FROM pg_create_logical_replication_slot($1, 'pgoutput', true)",
+             &[&slot_name],
+         )
+         .await
+@@ -122,6 +122,15 @@ pub async fn process_snapshot_task(
+ 
+     let consistent_point_str: String = row.get(0);
+     let consistent_point = parse_lsn(&consistent_point_str);
++    let read_view: String = row.get(1);
++    let pid: i32 = row.get(2);
++    tracing::debug!(
++        "COPY212 view mapping={} pid={} consistent={} view={}",
++        task_id,
++        pid,
++        consistent_point_str,
++        read_view
++    );
+ 
+     tracing::info!(
+         "DuckPipe: Starting chunked COPY snapshot for {}.{} (consistent_point={})",
+
+From 70bdbc497e8dc7244278cbbe9be7ca8647b7a557 Mon Sep 17 00:00:00 2001
+From: Christiaan Casper Viviers <25070401@sun.ac.za>
+Date: Fri, 27 Nov 2026 09:20:33 +0200
+Subject: [PATCH 2/2] Use pgoutput commit position for COPY catch-up admission
+
+---
+ duckpipe-core/src/service.rs | 103 ++++++++++++++++++++++++++++-------
+ 1 file changed, 83 insertions(+), 20 deletions(-)
+
+diff --git a/duckpipe-core/src/service.rs b/duckpipe-core/src/service.rs
+index fbbe8b7..00d7ab1 100644
+--- a/duckpipe-core/src/service.rs
++++ b/duckpipe-core/src/service.rs
+@@ -160,28 +160,27 @@ async fn ensure_coordinator_queue(
+     Ok(())
+ }
+ 
+-/// Returns true if this WAL change should be skipped: disabled, errored,
+-/// not yet caught up (CATCHUP with lsn <= snapshot_lsn), or already applied
+-/// in append mode (lsn <= applied_lsn).
+-fn should_skip_change(mapping: &TableMapping, lsn: u64) -> bool {
++/// Decide whether a DML message belongs in this mapping's queue.
++fn should_skip_change(
++    mapping: &TableMapping,
++    row_lsn: u64,
++    final_lsn: Option<u64>,
++) -> Result<bool, String> {
+     if !mapping.enabled || matches!(mapping.state, SyncState::Errored) {
+-        return true;
++        return Ok(true);
+     }
+-    if matches!(mapping.state, SyncState::Catchup)
+-        && mapping.snapshot_lsn != 0
+-        && lsn <= mapping.snapshot_lsn
+-    {
+-        return true;
++    if matches!(mapping.state, SyncState::Catchup) && mapping.snapshot_lsn != 0 {
++        // Compare the transaction's commit record start (from pgoutput BEGIN)
++        // to the decoding boundary. The DML WAL record can start right at that
++        // boundary or precede it even though the transaction commits after it.
++        let final_lsn = final_lsn.ok_or("CATCHUP DML without a pgoutput BEGIN")?;
++        return Ok(final_lsn < mapping.snapshot_lsn);
+     }
+-    // Append-mode exactly-once: skip already-applied WAL changes
+-    if matches!(mapping.sync_mode, SyncMode::Append)
++    // Append-mode replay continues to use the stored per-change LSN.
++    Ok(matches!(mapping.sync_mode, SyncMode::Append)
+         && matches!(mapping.state, SyncState::Streaming)
+         && mapping.applied_lsn != 0
+-        && lsn <= mapping.applied_lsn
+-    {
+-        return true;
+-    }
+-    false
++        && row_lsn <= mapping.applied_lsn)
+ }
+ 
+ /// Fill unchanged (TOAST) columns in `new_values` from `old_values`.
+@@ -468,7 +467,11 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    let skip = should_skip_change(mapping, lsn);
++                    let skip = should_skip_change(
++                        mapping,
++                        lsn,
++                        transaction.map(|(_, final_lsn)| final_lsn),
++                    )?;
+                     if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
+                         let (xid, final_lsn) = transaction.unwrap_or_default();
+                         tracing::debug!(
+@@ -530,7 +533,11 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    let skip = should_skip_change(mapping, lsn);
++                    let skip = should_skip_change(
++                        mapping,
++                        lsn,
++                        transaction.map(|(_, final_lsn)| final_lsn),
++                    )?;
+                     if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
+                         let (xid, final_lsn) = transaction.unwrap_or_default();
+                         tracing::debug!(
+@@ -665,7 +672,11 @@ async fn process_one_wal_message(
+                     cached.mapping = resolve_mapping(meta, group.id, rel_id, &cached.entry).await?;
+                 }
+                 if let Some(ref mapping) = cached.mapping {
+-                    let skip = should_skip_change(mapping, lsn);
++                    let skip = should_skip_change(
++                        mapping,
++                        lsn,
++                        transaction.map(|(_, final_lsn)| final_lsn),
++                    )?;
+                     if mapping.source_schema == "fixture" && mapping.source_table == "order_items" {
+                         let (xid, final_lsn) = transaction.unwrap_or_default();
+                         tracing::debug!(
+@@ -1463,3 +1474,55 @@ pub async fn run_group_sync_cycle(
+ 
+     Ok((any_work, group.pending_lsn))
+ }
++
++#[cfg(test)]
++mod copy_boundary_tests {
++    use super::*;
++
++    fn mapping(state: SyncState) -> TableMapping {
++        TableMapping {
++            id: 1,
++            source_schema: "fixture".into(),
++            source_table: "order_items".into(),
++            target_schema: "bronze".into(),
++            target_table: "order_items".into(),
++            state,
++            snapshot_lsn: 100,
++            applied_lsn: 110,
++            enabled: true,
++            source_oid: None,
++            target_oid: 0,
++            error_message: None,
++            source_label: String::new(),
++            sync_mode: SyncMode::Upsert,
++            config: Default::default(),
++        }
++    }
++
++    #[test]
++    fn catchup_admits_row_at_snapshot_point_if_commit_is_later() {
++        let map = mapping(SyncState::Catchup);
++        assert!(!should_skip_change(&map, 100, Some(120)).unwrap());
++    }
++
++    #[test]
++    fn catchup_uses_commit_order_and_an_inclusive_decoding_start() {
++        let map = mapping(SyncState::Catchup);
++        assert!(should_skip_change(&map, 80, Some(99)).unwrap());
++        assert!(!should_skip_change(&map, 80, Some(100)).unwrap());
++        assert!(!should_skip_change(&map, 80, Some(120)).unwrap());
++        assert!(should_skip_change(&map, 100, None).is_err());
++    }
++
++    #[test]
++    fn paused_snapshot_and_append_replay_retain_their_existing_rules() {
++        assert!(!should_skip_change(&mapping(SyncState::Snapshot), 80, Some(90)).unwrap());
++        let mut map = mapping(SyncState::Streaming);
++        assert!(!should_skip_change(&map, 109, Some(120)).unwrap());
++        map.sync_mode = SyncMode::Append;
++        assert!(should_skip_change(&map, 110, Some(120)).unwrap());
++        assert!(!should_skip_change(&map, 111, Some(120)).unwrap());
++        map.enabled = false;
++        assert!(should_skip_change(&map, 111, Some(120)).unwrap());
++    }
++}

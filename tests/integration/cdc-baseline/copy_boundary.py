@@ -121,6 +121,8 @@ class CopyBoundary(Experiment):
             self.dump_s01(*committed)
             self.target_s01(deadline)
             require(len(self.positions("after-S01")) == 1, "temporary COPY slot remains after parity")
+            if self.schedule in ("overlap", "delayed", "handoff"):
+                self.remove_copy_barrier()
             self.inventory()
             self.item_102_dml()
         finally:
