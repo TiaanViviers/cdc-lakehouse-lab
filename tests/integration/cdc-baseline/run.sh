@@ -10,8 +10,8 @@ case $trial in
     baseline|copy-window) experiment=017 ticket=43 sequence=26 controller=cdc-baseline/baseline.py ;;
     copy-boundary)
         experiment=023 ticket=60 sequence=32 controller=cdc-baseline/copy_boundary.py
-        export COPY_SCHEDULE=${3:?overlap, delayed, before-slot or after-copy}
-        case $COPY_SCHEDULE in overlap|delayed|before-slot|after-copy) ;; *) exit 2 ;; esac
+        export COPY_SCHEDULE=${3:?overlap, delayed, handoff, before-slot or after-copy}
+        case $COPY_SCHEDULE in overlap|delayed|handoff|before-slot|after-copy) ;; *) exit 2 ;; esac
         ;;
     copy-control) experiment=023 ticket=60 sequence=32 controller=cdc-baseline/baseline.py ;;
     gate) experiment=020 ticket=46 sequence=29 controller=cdc-gate/gate.py ;;

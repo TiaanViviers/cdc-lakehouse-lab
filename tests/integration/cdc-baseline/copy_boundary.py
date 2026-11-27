@@ -1,5 +1,6 @@
 """COPY handoff experiment using the existing fixture and independent parity reads."""
 
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -125,7 +126,78 @@ class CopyBoundary(Experiment):
         finally:
             self.capture_connector_trace()
 
+    @contextmanager
+    def held_sender(self):
+        # An optional negative-control schedule delays delivery, while the same
+        # PostgreSQL instance continues to accept and commit source SQL writes.
+        sender = self.sql("identify persistent sender", """
+            SELECT s.active_pid
+            FROM pg_replication_slots s
+            JOIN pg_stat_replication r ON r.pid = s.active_pid
+            WHERE s.slot_name = :'slot' AND s.database = 'source_lab'
+              AND s.plugin = 'pgoutput' AND s.active AND NOT s.temporary
+              AND r.usename = :'publisher' AND r.state = 'streaming';
+        """, variables=("-v", f"slot={self.slot}", "-v", f"publisher={self.publisher}"))
+        require(sender.isdecimal() and int(sender) > 1, "unverified persistent walsender")
+        args = (*DOCKER, "exec", "-i", "--user", "postgres", self.source_id, "sh", "-ec", r"""
+            pid=$1
+            tr '\000' ' ' < "/proc/$pid/cmdline" | grep -q '^postgres: walsender '
+            started=$(awk '{print $22}' "/proc/$pid/stat")
+            resume() {
+                test "$(awk '{print $22}' "/proc/$pid/stat")" = "$started" &&
+                    kill -CONT "$pid"
+            }
+            trap resume EXIT
+            kill -STOP "$pid"
+            printf 'held\n'
+            timeout -k 1s 18s head -n 1
+        """, "sh", sender)
+        with subprocess.Popen(args, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL) as holder:
+            try:
+                # Readiness is witnessed by the OS stop state, including after
+                # the source commit and after the target mapping's COPY handoff.
+                timeout = time.monotonic() + 4
+                while not self.sender_is_held(sender):
+                    require(time.monotonic() < timeout and holder.poll() is None,
+                            "persistent sender hold not witnessed")
+                    time.sleep(0.1)
+                self.event("copy-window", "sender_held", pid=sender)
+                yield sender
+            finally:
+                holder.stdin.close()
+                require(holder.wait(timeout=22) == 0 and not self.sender_is_held(sender),
+                        "persistent sender release could not be verified")
+                self.event("copy-window", "sender_resumed", pid=sender)
+
+    def sender_is_held(self, pid):
+        state = self.checked("inspect held walsender", (*DOCKER, "exec", "--user", "postgres",
+                             self.source_id, "awk", "/^State:/ { print $2 }", f"/proc/{pid}/status"))
+        return state.strip() == "T"
+
+    def wait_handoff(self, sender):
+        deadline = time.monotonic() + 6
+        while time.monotonic() < deadline:
+            slots = self.positions("handoff-held-sender")
+            status = self.status("handoff-held-sender")
+            mapping = next(row for row in status["mappings"] if row["source_table"] == "fixture.order_items")
+            if len(slots) == 1 and mapping["state"] == "CATCHUP" and mapping["snapshot_lsn"]:
+                require(self.sender_is_held(sender), "sender resumed before CATCHUP was witnessed")
+                self.event("copy-window", "catchup_before_delivery", mapping=mapping, pid=sender)
+                return
+            time.sleep(0.2)
+        raise RuntimeError("inconclusive: CATCHUP with withheld delivery was not observed")
+
     def overlap(self):
+        # Close the advisory holder before resuming the separate sender.
+        if self.schedule == "handoff":
+            with self.held_sender() as sender:
+                committed, deadline = self.witness_overlap(sender)
+                self.wait_handoff(sender)
+                return committed, deadline
+        return self.witness_overlap()
+
+    def witness_overlap(self, sender=None):
         self.sql("install copy barrier", Path(__file__).with_name("copy-hold.sql").read_text(),
                  variables=("-v", f"publisher={self.publisher}"))
         holder_command = (*DOCKER, "exec", "-i", "--user", "postgres", self.source_id,
@@ -153,6 +225,8 @@ class CopyBoundary(Experiment):
                 self.status("blocked-after-S01")
                 after = self.copy_probe()
                 require(after == before, "inconclusive: COPY/session/slot changed across S01")
+                if sender is not None:
+                    require(self.sender_is_held(sender), "sender resumed before S01 was witnessed")
                 self.event("copy-window", "same_copy_blocked_after_commit", session=after)
             finally:
                 # Disconnect to roll back the holder even when an assertion fails.
