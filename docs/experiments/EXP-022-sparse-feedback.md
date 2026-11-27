@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-27
 - **Research:** R03, R04, R05
-- **Status:** Stock sparse-retention hypothesis disproven. Pre-apply recovery witnessed in the separate fault control. M2 unmet.
+- **Status:** Stock pin failed the sparse-retention criterion. Pre-apply recovery witnessed in the separate fault control. M2 unmet.
 - **Operator:** Codex
 - **Scope:** Ticket 2.11 and [issue #59](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/59). Investigate fixed-membership sparse replication to the pinned local DuckLake sink. Concurrent COPY routing belongs to [2.12](https://github.com/TiaanViviers/cdc-lakehouse-lab/issues/60). Source-atomic Bronze publication is outside the ticket.
 - **Base:** `e6e27e6a01217196291ae00359c90465cb0ae004`. Dedicated branch `research/2.11-sparse-feedback`, separate upstream checkout at `86d5c248d80370fb2e10ddc1abd780fd94c3a52b`.
