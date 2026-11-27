@@ -17,6 +17,20 @@ STAGE_SECONDS = 150
 
 
 class Sparse(Gate):
+    def setup(self):
+        super().setup()
+        delay = 5000
+        if self.trial == "sparse-delayed-flush":
+            # Change only the supported time trigger before any queues are created.
+            # This widens the S03 crash window after the epoch-four item flush.
+            delay = 12000
+            self.sql("delayed flush setting", "SELECT duckpipe.set_config('flush_interval_ms', '12000');",
+                     target=True)
+        effective = self.sql("effective flush setting", "SELECT duckpipe.get_config('flush_interval_ms');",
+                             target=True)
+        require(effective == str(delay), "unexpected flush interval")
+        self.event("setup", "flush_interval", milliseconds=delay)
+
     def slot_fingerprint(self):
         return self.sql("persistent slot and publication fingerprint", """
             SELECT s.slot_name, s.plugin, s.database, s.temporary, p.oid,
