@@ -5,7 +5,7 @@ umask 077
 exec </dev/null
 cd "$(dirname "$0")/../../.."
 media=$(realpath "${1:?staged media directory}")
-trial=${2:?baseline, copy-window, copy-boundary or gate}
+trial=${2:?baseline, copy-window, copy-boundary, copy-control or gate}
 case $trial in
     baseline|copy-window) experiment=017 ticket=43 sequence=26 controller=cdc-baseline/baseline.py ;;
     copy-boundary)

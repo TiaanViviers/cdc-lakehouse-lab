@@ -55,6 +55,7 @@ and oracle. `copy-control` runs the held four-table baseline.
 | `delayed` | Same witness as `overlap`, with three extra seconds for WAL delivery while COPY is held. |
 | `handoff` | Same witness with a bounded delay on the persistent walsender only. The source commits normally. Resume delivery after the temporary slot disappears and mapping 4 is observed in CATCHUP. |
 | `before-slot` | S01 commits before order-items registration and that table's temporary slot. |
+| `slot-initializing` | Assign the fixture writer an XID, witness temporary-slot initialization waiting on it, then commit S01. Withhold delivery until CATCHUP. |
 | `after-copy` | S01 commits after exact order-items S00 and temporary slot release. |
 
 The controller captures the runner XID, bounded XID-filtered PG16
