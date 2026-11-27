@@ -1,8 +1,9 @@
 BASE ?= HEAD
 PYTHON ?= python3
+MEDIA ?=
 WHITESPACE_CHECK = git -c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab diff --check --no-ext-diff
 
-.PHONY: help check check-whitespace check-local-files test-unit test-integration
+.PHONY: help check check-whitespace check-local-files test-unit test-integration test-cdc
 
 help:
 	@printf '%s\n' \
@@ -11,7 +12,8 @@ help:
 		'make check-whitespace   Check the index against BASE (default HEAD) and check unstaged changes' \
 		'make check-local-files  Check ignore rules, indexed paths and the indexed env example' \
 		'make test-unit          Run the offline unit tests' \
-		'make test-integration   Run the verified disposable source gate'
+		'make test-integration   Run the verified disposable source gate' \
+		'make test-cdc MEDIA=...  Run the paired CDC subgate in the disconnected guest'
 
 check: check-whitespace check-local-files
 
@@ -45,3 +47,6 @@ test-unit:
 
 test-integration:
 	bash tests/integration/source-gate/run.sh
+
+test-cdc:
+	bash tests/integration/cdc-gate/run.sh "$(MEDIA)"
