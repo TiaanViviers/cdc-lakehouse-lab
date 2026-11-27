@@ -2,7 +2,7 @@
 
 A reproducible data-engineering research environment exploring PostgreSQL WAL-based change data capture, DuckPipe, DuckLake, DuckDB, Windmill, SQL query serving, asynchronous operations and end-to-end observability.
 
-> **Status (2026-11-26).** The Phase 1 source gate passed. The pinned Phase 2 remote DuckPipe path demonstrated exact local DuckLake convergence at held checkpoints and bounded same-slot recovery. M2 remains unmet. Retained WAL grew during sparse-table activity, and three controlled COPY-overlap runs missed the same committed insert by their deadlines. See the [Phase 1 closeout](docs/phase-1-closeout.md), [Phase 2 evidence](docs/experiments/EXP-020-phase-2-cdc-gate.md) and [Phase 2 verification runbook](docs/cdc-gate.md).
+> **Status (2026-11-27).** The Phase 1 source gate passed. The pinned Phase 2 remote DuckPipe path demonstrated exact local DuckLake convergence at held checkpoints and bounded same-slot recovery. M2 remains unmet. Retained WAL grew during sparse-table activity, and three controlled COPY-overlap runs missed the same committed insert by their deadlines. The Phase 2 closeout proposes corrective work and a Phase 3 backlog for maintainer review. Phase 2 remains open. [Phase 2 closeout](docs/phase-2-closeout.md) · [Phase 2 evidence](docs/experiments/EXP-020-phase-2-cdc-gate.md) · [Verification runbook](docs/cdc-gate.md)
 
 ## What we are building
 
@@ -41,6 +41,7 @@ Every phase has its own exit gate, and **basic inspection is required from phase
 - [Local runtime design](docs/local-runtime-design.md)
 - [Phase 0 closeout and approval gate](docs/phase-0-closeout.md)
 - [Phase 1 closeout and Phase 2 handover](docs/phase-1-closeout.md)
+- [Phase 2 closeout and proposed Phase 3 backlog](docs/phase-2-closeout.md)
 - [Development guide](docs/development-guide.md)
 - [Roadmap and dependencies](docs/roadmap.md)
 - [Ticket naming / issue numbering](docs/issue-conventions.md)

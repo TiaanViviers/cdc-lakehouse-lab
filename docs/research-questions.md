@@ -80,6 +80,14 @@ Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent sou
 | R13 | **OPEN** | Explicit partial catalog versions disprove commit-atomic Bronze visibility. The first exact named version at a held, independently verified source checkpoint is usable while retained. Continuous-source cutoffs remain unverified. |
 | R16 | **OPEN** | A read-only walkthrough traces an S04 source commit through publication, slot, sender, worker and direct Bronze rows. Downstream stages in the full walkthrough remain open. |
 
+## 2.10 closeout assessment
+
+**M2 remains unmet.** R02 is verified for held initial copies, with concurrent COPY blocked at the tested boundary. R03 remains scoped to held convergence and the tested schedules. R04 explains the acknowledgement stall and leaves mitigation open. R05 supports tested same-slot recovery inside retained WAL and fresh resnapshot after loss. These scopes stand pending corrective results. [Closeout and dispositions](phase-2-closeout.md) · [Corrective proposal](../backlog/phase-2-corrections.md)
+
+- **R06, R07, R09 and R15 remain OPEN.** Local 0.4 metadata, inline rows and referenced data/delete Parquet were observed. SeaweedFS 4.55 and the independent DuckDB 1.5.1 reader set have candidate pins. The exact writer path, credentials and independent object-backed reads still require runtime proof. [Storage strategy](phase-3-storage-strategy.md) · [Artifact review](experiments/EXP-021-phase-2-closeout-review.md)
+- **R08 remains OPEN.** The pinned coordinator has a remote catalog option. Registration and native relations are tied to the consumer's PostgreSQL catalog in the tested extension setup. Colocation is the proposed Phase 3 baseline. [Catalog separation](phase-3-storage-strategy.md#catalog-separation-retention-and-later-clients)
+- **R13 remains OPEN.** The pinned SQL API exposes no verified source transaction-completion watermark or live snapshot barrier. Per-table feedback, catalog visibility and physical materialization have separate boundaries. Explicit partial versions disprove source-atomic visibility on this build. Independent reading of an exact held version is planned for Phase 3. Continuous-source certification needs its own research before downstream reliance. [Cutoff analysis](bronze-snapshot-cutoffs.md)
+
 ## Research priorities
 
 Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six were **OPEN** at the Phase 0 checkpoint. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.
