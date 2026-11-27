@@ -440,6 +440,13 @@ class Experiment:
                     raise RuntimeError("advisory holder release timed out") from None
         self.event("copy-window", "advisory_hold_released")
         self.initial(table, "S01" if before else "S00")
+        self.remove_copy_barrier()
+        self.inventory()
+        self.checkpoint("copy-window", "S01" if before else "S00")
+        require(before, "copy-window inconclusive: deterministic COPY wait was not observed")
+        self.item_102_dml()
+
+    def remove_copy_barrier(self):
         self.sql("remove copy barrier", """
             DROP POLICY exp017_copy_gate ON fixture.order_items;
             DROP POLICY exp017_fixture_io ON fixture.order_items;
@@ -447,10 +454,6 @@ class Experiment:
             ALTER TABLE fixture.order_items DISABLE ROW LEVEL SECURITY;
             DROP FUNCTION fixture.exp017_copy_gate();
         """)
-        self.inventory()
-        self.checkpoint("copy-window", "S01" if before else "S00")
-        require(before, "copy-window inconclusive: deterministic COPY wait was not observed")
-        self.item_102_dml()
 
     def item_102_dml(self):
         # The published S02 updates item 101. Exercise literal item 102 DML
@@ -565,7 +568,7 @@ class Experiment:
         for table in TABLES[:-1]:
             self.register(table)
             self.initial(table, "S00")
-        if self.trial == "copy-window":
+        if self.trial in ("copy-window", "copy-boundary"):
             self.copy_window()
         else:
             self.register(TABLES[-1])

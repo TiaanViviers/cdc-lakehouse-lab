@@ -88,6 +88,11 @@ Ticket 1.6 verified exact S04, A-only and S05 visibility from an independent sou
 - **R08 remains OPEN.** The pinned coordinator has a remote catalog option. Registration and native relations are tied to the consumer's PostgreSQL catalog in the tested extension setup. Colocation is the proposed Phase 3 baseline. [Catalog separation](phase-3-storage-strategy.md#catalog-separation-retention-and-later-clients)
 - **R13 remains OPEN.** The pinned SQL API exposes no verified source transaction-completion watermark or live snapshot barrier. Per-table feedback, catalog visibility and physical materialization have separate boundaries. Explicit partial versions disprove source-atomic visibility on this build. Independent reading of an exact held version is planned for Phase 3. Continuous-source certification needs its own research before downstream reliance. [Cutoff analysis](bronze-snapshot-cutoffs.md)
 
+
+### Ticket 2.12 COPY boundary
+
+[EXP-023](experiments/EXP-023-copy-boundary.md) attributes the pinned concurrent COPY miss to DuckPipe's CATCHUP admission rule. It skipped an insert whose WAL start equaled the temporary slot's consistency point, even though the transaction committed later and was outside the COPY view. R02 and R03 gain positive evidence on the separate candidate for three witnessed holds with exact S01, continued full-row update and deletion, and the held four-table baseline. A transaction committed during temporary-slot initialization still missed Bronze on that candidate because the SQL read view excluded it and the later decoding point caused CATCHUP to skip it. R02 and R03 retain this open startup boundary. R04 gains distinct publisher, transaction commit/end and handoff positions. Sparse feedback and R05 recovery through this boundary still require integrated verification. M2 remains unmet.
+
 ## Research priorities
 
 Ticket 0.4 specifies planned checks for R04, R05, R13, R16, R21 and R25 in the [verification protocol](verification-plan.md#research-traceability). All six were **OPEN** at the Phase 0 checkpoint. Use the protocol to record separate observations of WAL acknowledgement, snapshot parity, job execution and source commitment.

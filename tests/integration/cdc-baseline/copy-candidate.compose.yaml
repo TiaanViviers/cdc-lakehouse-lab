@@ -1,0 +1,11 @@
+services:
+  cdc-catalog:
+    environment:
+      RUST_LOG: "duckpipe_core::service=debug,duckpipe_core::snapshot=debug,info"
+    volumes:
+      - type: bind
+        source: ${COPY_CANDIDATE_LIBRARY:?set to the verified read-only staged candidate}
+        target: /usr/lib/postgresql/18/lib/pg_duckpipe.so
+        read_only: true
+        bind:
+          create_host_path: false
