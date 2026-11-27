@@ -109,15 +109,19 @@ class Sparse(Gate):
         require(not status["worker_pids"], "pre-worker read window missed")
         require(self.slot_fingerprint() == self.original_slot, "persistent publisher identity changed")
         stale = not self.data("delete-before-worker-old", "S02", "target")
+        checkpoint = status["group"]["confirmed_lsn"]
         if stale:
             require(lsn(offline["slot"]["confirmed_flush_lsn"]) <= lsn(lower),
                     "feedback crossed the source delete lower bracket while Bronze retained the deleted row")
+            require(checkpoint is None or lsn(checkpoint) <= lsn(lower),
+                    "persisted resume point crossed the source delete lower bracket")
         else:
             require(not self.data("delete-before-worker-new", "S03", "target"),
                     "unexpected durable rows after crash")
         self.event("delete-crash", "apply_window", witnessed=pending and stale,
                    preworker_s02=stale, queued_and_old_sample=pending,
-                   before_commit_insert_lsn=lower, offline_confirmed=offline["slot"]["confirmed_flush_lsn"])
+                   before_commit_insert_lsn=lower, offline_confirmed=offline["slot"]["confirmed_flush_lsn"],
+                   persisted_before_worker=checkpoint)
         self.worker("delete-restart")
         self.checkpoint("delete-recovered", "S03")
         self.budget("delete-recovered")
